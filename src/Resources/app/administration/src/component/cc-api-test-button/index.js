@@ -35,32 +35,27 @@ Component.register('cc-api-test-button', {
             this.isSaveSuccessful = false;
         },
 
-        check() {
-            this.isLoading = true;
-            let vm = this;
-            this.solvency.getCredits(this.pluginConfig).then((res) => {
-                if (res.error) throw 'Keine Verbindung zum Service';
-                if ( res >= 0 ) {
-                    vm.isSaveSuccessful = true;
-                    vm.createNotificationSuccess({
-                        title: vm.$tc('cc-api-test-button.title'),
-                        message: vm.$tc('cc-api-test-button.success')
-                    });
-                } else {
-                    vm.createNotificationError({
-                        title: vm.$tc('cc-api-test-button.title'),
-                        message: vm.$tc('cc-api-test-button.error')
-                    });
-                }
-
-                vm.isLoading = false;
-            }).catch(function(err) {
-                vm.createNotificationError({
-                    title: vm.$tc('cc-api-test-button.title'),
-                    message: vm.$tc('cc-api-test-button.error')
+        async check() {
+            const title = this.$tc('cc-api-test-button.title');
+            try{
+                // soso
+                this.isLoading = true;
+                /** @var {number} res */
+                const res = await this.solvency.getCredits();
+                this.isSaveSuccessful = true;
+                this.createNotificationSuccess({
+                    title,
+                    message: this.$tc('cc-api-test-button.success')
                 });
-                vm.isLoading = false;
-            });
+            }catch (e){
+                this.isSaveSuccessful = false;
+                this.createNotificationError({
+                    title,
+                    message: e.message
+                });
+            }finally {
+                this.isLoading = false;
+            }
         }
     }
 })

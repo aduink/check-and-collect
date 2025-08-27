@@ -131,7 +131,7 @@
         <title lang="de-DE">Debug</title>
         <input-field type="bool">
             <name>activeLog</name>
-            <label>Aactivate protocolling</label>
+            <label>Activate logging</label>
             <label lang="de-DE">Protokollierung aktivieren</label>
             <options>
                 <option>
@@ -146,7 +146,7 @@
                 </option>
             </options>
             <helpText>If the logging is activated, various information is stored in a file in the log directory.</helpText>
-            <helpText lang="de-DE">Ist die Protkollierung aktiviert werden verschiedenste Informationen in eine Datei im Logverzeichnis abgelegt.</helpText>
+            <helpText lang="de-DE">Ist die Protokollierung aktiviert, werden verschiedenste Informationen in eine Datei im Log-Verzeichnis abgelegt.</helpText>
         </input-field>
 
         <input-field type="text">

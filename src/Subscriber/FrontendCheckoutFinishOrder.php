@@ -2,222 +2,197 @@
 
 namespace Adu\CheckAndCollect\Subscriber;
 
-use Psr\Log\LoggerInterface;
+use Adu\CheckAndCollect\Model\ServiceLocator;
+use Adu\CheckAndCollect\Service\AduConfig;
+use Adu\CheckAndCollect\Service\ConfiguredService;
+use Adu\CheckAndCollect\Service\Logger;
 use Shopware\Core\Checkout\Cart\SalesChannel\CartService;
+use Shopware\Core\Checkout\Payment\PaymentMethodEntity;
+use Shopware\Core\Content\Rule\RuleEntity;
+use Shopware\Core\Content\Rule\RuleEvents;
+use Shopware\Core\Framework\Api\Context\SystemSource;
+use Shopware\Core\Framework\Context;
+use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
+use Shopware\Core\Framework\DataAbstractionLayer\Search\EntitySearchResult;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\ContainsFilter;
-use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\EqualsFilter;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\MultiFilter;
-use Symfony\Component\DependencyInjection\ContainerInterface;
-use Symfony\Component\EventDispatcher\EventSubscriberInterface;
+use Shopware\Core\System\SalesChannel\Event\SalesChannelContextCreatedEvent;
+use Shopware\Core\System\SalesChannel\SalesChannelContext;
+use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
+use Symfony\Component\HttpFoundation\Exception\SessionNotFoundException;
 use Symfony\Component\HttpFoundation\RequestStack;
+use Symfony\Component\HttpFoundation\Session\SessionInterface;
 use Symfony\Component\HttpKernel\Event\ControllerArgumentsEvent;
-use Adu\CheckAndCollect\Service\SoapService;
+use Adu\CheckAndCollect\Service\ApiService;
+use Symfony\Contracts\Service\Attribute\Required;
 
 
 /**
  * Class FrontendCheckoutFinishOrder
  * @package Adu\CaC\Subscriber
  */
-class FrontendCheckoutFinishOrder implements EventSubscriberInterface
+class FrontendCheckoutFinishOrder
 {
-    private $session;
-    protected LoggerInterface $log;
-    protected CartService $cartService;
-    protected ContainerInterface $container;
-    protected SoapService $soapService;
+    use ConfiguredService;
 
-    /**
-     * @param SoapService $soapService
-     * @param ContainerInterface $container
-     * @param CartService $cartService
-     * @param LoggerInterface $logger
-     * @param RequestStack $request
-     */
+    private readonly ?SessionInterface $session;
+    private readonly ServiceLocator $locator;
+
+    // Die Eine Route für Standard Storefront die andere für Headless api
+    private const CHECKOUT_ROUTES = ["store-api.checkout.cart.order", "frontend.checkout.finish.order"];
+
+
     public function __construct(
-        SoapService        $soapService,
-        ContainerInterface $container,
-        CartService        $cartService,
-        LoggerInterface    $log,
-        RequestStack       $requestStack)
+        protected ApiService       $apiService,
+        protected EntityRepository $ruleRepository,
+        protected EntityRepository $customerRepository,
+        protected CartService      $cartService,
+        protected Logger           $logger,
+        RequestStack               $requestStack
+    )
     {
-        $this->soapService = $soapService;
-        $this->container = $container;
-        $this->cartService = $cartService;
-        $this->log = $log;
-        $this->session = $requestStack->getSession();
+        try{
+            $this->session = $requestStack->getSession();
+        }catch (SessionNotFoundException){
+            $this->session = null;
+        }
+    }
+
+    #[Required]
+    public function setConfig(AduConfig $config): void
+    {
+        $this->config = $config;
+        $this->locator = new ServiceLocator(
+            null, // API noch nicht freigeben
+            $this->session,
+            $this->logger,
+            $this->customerRepository,
+            $this->config,
+            $this->cartService
+        );
     }
 
     /**
-     * @return string[]
+     * Dient nur als stub um den Servicelocator zu füllen
+     * Benötigt für Den aufruf der Zahlungsmehtoden aus Headless Stores (/store-api/payment-method)
      */
-    public static function getSubscribedEvents(): array
-    {
-        return [
-            ControllerArgumentsEvent::class => 'onFrontendCheckoutFinishOrder'
-        ];
+    #[AsEventListener(event: RuleEvents::RULE_LOADED_EVENT)]
+    public function ruleLoadedListener(
+        //EntityLoadedEvent $event
+    ): void {
+        $this->logger->log("Rule loaded!");
     }
 
-    /**
-     * @param ControllerArgumentsEvent $event
-     */
-    public function onFrontendCheckoutFinishOrder(ControllerArgumentsEvent $event)
+    #[AsEventListener(event: SalesChannelContextCreatedEvent::class)]
+    public function onSalesChannelContextCreated(SalesChannelContextCreatedEvent $event): void
+    {
+        // Just to initialize the service before the sales channel rules are evaluated
+    }
+
+    #[AsEventListener(event: ControllerArgumentsEvent::class)]
+    public function onFrontendCheckoutFinishOrder(ControllerArgumentsEvent $event): void
     {
         $route = $event->getRequest()->attributes->get('_route');
-
-        if ('frontend.checkout.finish.order' == $route) {
-
-            $context = $event->getArguments();
-            $salesChannelContext = '';
-
-            // Gggfls variable
-            foreach ($context as $ko => $vo) {
-                if (is_a($vo, "Shopware\Core\System\SalesChannel\SalesChannelContext")) {
-                    $salesChannelContext = $vo;
-                }
+        if (!in_array($route, self::CHECKOUT_ROUTES) || !$this->shouldCheck()) {
+            // Manche Shopbetreiber loggen sich für mehrere Kunden hintereinander ein und bestellen für sie.
+            // So kann für jeden eingeloggten Kunden ein neuer Score gezogen werden
+            if ($route === "frontend.account.login.imitate-customer") {
+                $v = $this->session->remove('adu_score_value');
+                $this->logger->log("Neuer Kunde wird imitiert. Adu_score_value wird aus Session gelöscht", context: $v ?? []);
             }
+            return;
+        }
+        $this->logger->log("Checkout Route wurde aufgerufen", context: [$route]);
+        try {
+            $salesChannelContext = $this->getSalesChannelContext($event);
+        } catch (\Exception $e) {
+            $this->logger->log('SalesChannelContext konnte nicht geladen werden', true, [$e]);
+            return;
+        }
 
-            if (is_a($salesChannelContext, "Shopware\Core\System\SalesChannel\SalesChannelContext")) {
-                $this->soapService->setScope($salesChannelContext->getSalesChannel()->getId());
-                if ($this->soapService->activeApi && (empty($this->soapService->ipAddress) || $_SERVER['REMOTE_ADDR'] == $this->soapService->ipAddress)) {
-
-                    $payment = $salesChannelContext->getPaymentMethod();
-                    $pname = $payment->getName();
-                    $this->logger($pname . ' - Starte Regelermittlung');
-                    $availibilityRule = $payment->getAvailabilityRuleId();
-
-                    if ($this->session->get('route') !== true && null !== $salesChannelContext->getCustomer()) {
-                        // ScoreRule im RuleBuilder?
-                        if (null !== $availibilityRule) {
-
-                            $ruleRepository = $this->container->get('rule.repository');
-
-                            $criteria = new Criteria();
-                            $criteria->addFilter(
-                                new MultiFilter(
-                                    MultiFilter::CONNECTION_OR,
-                                    [
-                                        new ContainsFilter('payload', 'ScoreRule'),
-                                        new ContainsFilter('payload', 'CustomerRule')
-                                    ]
-                                )
-                            );
-                            $criteria->addFilter(
-                                new EqualsFilter('id', $availibilityRule)
-                            );
-
-                            $entities = $ruleRepository->search($criteria, \Shopware\Core\Framework\Context::createDefaultContext());
-
-                            if ($entities->getTotal() == 0) {
-                                $this->logger($pname . ' - Keine Payload zur Verfügbarkeitsregel gefunden.');
-                                return;
-                            }
-                            $this->logger($pname . ' - Regel wurde ermittelt.');
-                        } else {
-                            $this->logger($pname . ' - Keine Verfügbarkeitsregel gefunden.');
-                            return;
-                        }
-
-                        $this->logger($pname . ' - Context wird geladen.');
-                        $customer = $salesChannelContext->getCustomer();
-
-                        $this->logger($pname . ' - Warenkorb wird geladen.');
-                        $cart = $this->cartService->getCart($salesChannelContext->getToken(), $salesChannelContext);
-                        $goodsAmount = $cart->getPrice()->getTotalPrice();
-
-                        // Scorewertermittlung
-                        $this->logger($pname . ' - Score wird ermittelt.');
-                        $result = $this->getScore($customer, $goodsAmount);
-
-                        // Customerfields update
-                        $customArr = $customer->getCustomFields();
-                        $customArr['adu_score_value'] = floatval($result['score']);
-                        $customArr['adu_additional_value'] = (string)$result['additionalInfo'];
-
-                        $this->logger($pname . ' - Customfields werden aktualisiert.');
-                        $customerRepository = $this->container->get('customer.repository');
-                        $customerRepository->update(
-                            [
-                                ['id' => $customer->getid(), 'customFields' => $customArr],
-                            ],
-                            \Shopware\Core\Framework\Context::createDefaultContext()
-                        );
-
-                        // Frontend Cache
-                        $this->session->set('route', true);
-                    } else {
-                        if (null !== $this->session->get('route')) {
-                            $this->logger('Verarbeitung wurde durchgeführt. Shopware Rule Builder wird ausgeführt.');
-                        } else {
-                            $this->logger('Verbeitung wurde nicht gestartet. Es sind (noch) keine Kundendaten vorhanden.');
-                        }
-
-                        return;
-                    }
-                }
-            }
-        } else {
-            $this->logger('SalesChannelContext konnte nicht geladen werden');
+        $payment = $salesChannelContext->getPaymentMethod();
+        if($this->paymentMethodHasAduRule($payment)){
+            $this->kickstartCreditCheck($salesChannelContext);
         }
     }
 
     /**
-     * @param $customer
-     * @param $goodsAmount
-     * @return mixed
+     * Prüft ob die übergebene Zahlungsmethode eine AvailabillityRule hat, und ob diese Eine kostenpflichtige Scoreabfrage benötigt
+     */
+    private function paymentMethodHasAduRule(PaymentMethodEntity $payment): bool {
+        $this->logger->log('Prüfung der Zahlungsmethode ' . $payment->getName());
+        $availabilityRuleId = $payment->getAvailabilityRuleId();
+        if (!$availabilityRuleId) {
+            $this->logger->log("Der Zahlungsmethode sind keine Verfügbarkeitsregeln zugeordnet");
+            return false;
+        }
+        $rules = $this->getRules($availabilityRuleId);
+        if (!$rules->getTotal()) {
+            $this->logger->log("Der Zahlungsmethode sind keine Bonitätsregeln zugewiesen");
+            return false;
+        }
+        return true;
+    }
+
+    private function kickstartCreditCheck(SalesChannelContext $salesChannelContext): void
+    {
+        $this->logger->log("API-Zugriff wird freigeschaltet");
+
+        // Sobald die Regeln Zugriff auf den ApiService haben, haben Sie die Möglichkeit über die API auf einen neuen Score zuzugreifen
+        $this->apiService->setScope($salesChannelContext->getSalesChannel()->getId());
+        $this->locator->ccApi = $this->apiService;
+    }
+
+    /**
      * @throws \Exception
      */
-    private
-    function getScore($customer, $goodsAmount)
+    private function getSalesChannelContext(ControllerArgumentsEvent $event): SalesChannelContext
     {
-        $shopsetting = ['salution' => $customer->getSalutation()->getLetterName(), 'amount' => $goodsAmount, 'customerEntityId' => $customer->getid()];
+        $context = $event->getArguments();
 
-        $addressArr = [];
-        $addressArr['firstname'] = (NULL != $customer->getFirstName()) ? $customer->getFirstName() : '';
-        $addressArr['lastname'] = (NULL != $customer->getLastName()) ? $customer->getLastName() : '';
-        $addressArr['street'] = (NULL != $customer->getActiveBillingAddress()->getStreet()) ? $customer->getActiveBillingAddress()->getStreet() : '';
-        $addressArr['housenumber'] = '';
-        $addressArr['zipcode'] = (NULL != $customer->getActiveBillingAddress()->getZipcode()) ? $customer->getActiveBillingAddress()->getZipcode() : '';
-        $addressArr['city'] = (NULL != $customer->getActiveBillingAddress()->getCity()) ? $customer->getActiveBillingAddress()->getCity() : '';
-        $addressArr['company'] = (NULL != $customer->getActiveBillingAddress()->getCompany()) ? $customer->getActiveBillingAddress()->getCompany() : '';
-        $addressArr['phone'] = (NULL != $customer->getActiveBillingAddress()->getPhoneNumber()) ? $customer->getActiveBillingAddress()->getPhoneNumber() : '';
-        $addressArr['email'] = (NULL != $customer->getEmail()) ? $customer->getEmail() : '';
-        $addressArr['birthday'] = (NULL != $customer->getBirthday()) ? $customer->getBirthday() : '';
-        $addressArr['ordernumber'] = $customer->getId();
-        $addressArr['country'] = $customer->getActiveBillingAddress()->getCountry()->getIso();
-        $addressArr['shopsetting'] = $shopsetting;
-        $addressArr['customerId'] = $customer->getCustomerNumber();
-
-        // Nur prüfen wenn eine Änderung zur vorherigen Eingabe existiert
-        $hashStr = $addressArr['firstname'] . $addressArr['lastname'] . $addressArr['street'] . $addressArr['housenumber'] . $addressArr['zipcode'] . $addressArr['city'] . $addressArr['company'];
-        $hashStr = hash('sha256', $hashStr);
-
-        // Vorhanden in der aktuellen Sitzung?
-        if (!empty($this->session->get('score')) && !empty($this->session->get('checksum')) && $hashStr == $this->session->get('checksum')) return $this->session->get('score');
-
-        // Neuer Hash, neue Prüfung
-        $this->session->set('checksum', $hashStr);
-
-        // Prüfen
-        $result = $this->soapService->getSolvencyCheck($addressArr);
-        $this->session->set('score', $result);
-
-        return $result;
+        // Gggfls variable
+        /** @var SalesChannelContext[] $salesChannelContexts */
+        $salesChannelContexts = array_filter($context, fn($c) => $c instanceof SalesChannelContext);
+        $salesChannelContext = array_pop($salesChannelContexts);
+        if (!$salesChannelContext) {
+            throw new \Exception('SalesChannelContext konnte nicht geladen werden');
+        }
+        return $salesChannelContext;
     }
 
     /**
-     * @param $msg
-     * @param bool $crit
+     * @param string $availabilityRuleId
+     * @return EntitySearchResult<RuleEntity>
+     * Prüfen ob die AvailabillityRule AduRegeln nutzt
      */
-    private
-    function logger($msg, $crit = false)
+    private function getRules(string $availabilityRuleId): EntitySearchResult
     {
-        if ($this->soapService->activeLog == true) {
-            if ($crit) {
-                $this->log->critical($msg);
-            } else {
-                $this->log->debug($msg);
-            }
+        $criteria = new Criteria([$availabilityRuleId]);
+        $criteria->addFilter(
+            new MultiFilter(MultiFilter::CONNECTION_OR, [
+                new ContainsFilter('payload', 'ScoreRule'),
+                new ContainsFilter('payload', 'CustomerRule'),
+                new ContainsFilter('payload', 'AwarenessRule'),
+            ])
+        );
+        $context = new Context(new SystemSource());
+        return $this->ruleRepository->search($criteria, $context);
+    }
+
+    private function shouldCheck(): bool
+    {
+        if (!$this->config->activeApi()) {
+            // Einstellung haben die Prüfung deaktiviert
+            $this->logger->log("Prüfung ist durch die Plugin-Einstellung deaktiviert");
+            return false;
         }
+        $ip = $this->config->ipAddress();
+        if ($ip) {
+            $this->logger->log("Die Prüfung ist auf eine Spezifische IP beschränkt. Match? " . ($_SERVER['REMOTE_ADDR'] === $ip ? "Ja" : "Nein"));
+            // Prüfung wurde auf eine spezifische IP eingeschränkt
+            return $_SERVER['REMOTE_ADDR'] === $ip;
+        }
+        return true;
     }
 }

@@ -1,4 +1,7 @@
+/// <reference types="@shopware-ag/meteor-admin-sdk" />
 import template from './cc-additionalinfo.html.twig';
+
+/** @type {import('@shopware-ag/jest-preset-sw6-admin/@tool/setup-env-for-shopware'))} */
 const { Component } = Shopware;
 
 Component.extend('cc-additionalinfo', 'sw-condition-base', {

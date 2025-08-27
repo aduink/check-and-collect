@@ -1,0 +1,23 @@
+{
+  "base": "/bundles/aduincheckandcollect/administration/",
+  "entryPoints": {
+    "aduin-check-and-collect": {
+      "css": [],
+      "dynamic": [],
+      "js": [
+        "/bundles/aduincheckandcollect/administration/assets/aduin-check-and-collect-CjIfTRRQ.js"
+      ],
+      "legacy": false,
+      "preload": []
+    }
+  },
+  "legacy": false,
+  "metadatas": {},
+  "version": [
+    "7.1.0",
+    7,
+    1,
+    0
+  ],
+  "viteServer": null
+}

@@ -4,10 +4,9 @@
 
             <sw-number-field
                 size="medium"
-
 				id="cc-score"
 				name="cc-score"
-                v-model="isScore"
+                v-model:value="isScore"
                 numberType="float"
                 :step="0.1"
                 :allowEmpty="false"

@@ -5,32 +5,13 @@
            xsi:schemaLocation="http://symfony.com/schema/dic/services http://symfony.com/schema/dic/services/services-1.0.xsd">
 
     <services>
+        <defaults autowire="true" autoconfigure="true" />
+        <prototype namespace="Adu\CheckAndCollect\" resource="../../*" exclude="../" />
+
         <service id="Adu\CheckAndCollect\Controller\SolvencyController" public="true">
             <call method="setContainer">
                 <argument type="service" id="service_container"/>
             </call>
         </service>
-
-        <service id="Adu\CheckAndCollect\Subscriber\FrontendCheckoutFinishOrder">
-        	<argument type="service" id="Adu\CheckAndCollect\Service\SoapService" />
-        	<argument type="service" id="service_container" />
-        	<argument type="service" id="Shopware\Core\Checkout\Cart\SalesChannel\CartService"  />
-            <argument type="service" id="logger"/>
-            <argument type="service" id="request_stack"/>
-            <tag name="kernel.event_subscriber"/>
-        </service>
-
-        <service id="Adu\CheckAndCollect\Service\SoapService" public="true">
-			<argument type="service" id="Shopware\Core\System\SystemConfig\SystemConfigService" />
-		</service>
-
-        <service id="Adu\CheckAndCollect\Core\Rule\ScoreRule">
-            <tag name="shopware.rule.definition" />
-        </service>
-
-        <service id="Adu\CheckAndCollect\Core\Rule\CustomerRule">
-            <tag name="shopware.rule.definition" />
-        </service>
-
 	</services>
 </container>
