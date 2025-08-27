@@ -1,0 +1,12 @@
+Copyright (c) 2025 Allgemeiner Debitoren- und Inkassodienst GmbH
+
+Alle Rechte vorbehalten.
+
+Diese Software und zugehörige Dateien dürfen ohne ausdrückliche schriftliche Genehmigung des Rechteinhabers weder kopiert, verändert, veröffentlicht, verteilt, verkauft, lizenziert noch anderweitig verwendet werden.
+
+Die Nutzung dieser Software ist ausschließlich für interne, nicht-kommerzielle Zwecke gestattet. Jede andere Nutzung, insbesondere kommerzielle Nutzung, Weitergabe oder Modifikation, ist untersagt.
+
+Diese Software wird "wie sie ist" bereitgestellt, ohne jegliche ausdrückliche oder stillschweigende Gewährleistung, einschließlich, aber nicht beschränkt auf die Gewährleistung der Marktgängigkeit oder Eignung für einen bestimmten Zweck.
+
+Für Fragen zur Lizenzierung oder zur kommerziellen Nutzung wenden Sie sich bitte an: web@adu-inkasso.de
+
