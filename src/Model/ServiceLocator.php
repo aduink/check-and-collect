@@ -1,19 +1,32 @@
 <?php
+
 namespace Adu\CheckAndCollect\Model;
+
+use Adu\CheckAndCollect\Service\AduConfig;
+use Adu\CheckAndCollect\Service\ApiService;
+use Adu\CheckAndCollect\Service\AduLogger;
+use Shopware\Core\Checkout\Cart\SalesChannel\CartService;
+use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
+use Symfony\Component\HttpFoundation\Session\SessionInterface;
 
 class ServiceLocator
 {
-    private static $instance;
-    private function __construct()
+    private static ?ServiceLocator $instance = null;
+
+    public function __construct(
+        public ?ApiService       $ccApi,
+        public ?SessionInterface $ccSession,
+        public AduLogger         $ccLogger,
+        public EntityRepository  $ccRepo,
+        public AduConfig         $ccConfig,
+        public CartService       $ccCart,
+    )
     {
+        self::$instance = $this;
     }
 
-    public static function getInstance(): ServiceLocator
+    public static function getInstance(): ?ServiceLocator
     {
-        if (!self::$instance) {
-            self::$instance = new ServiceLocator();
-        }
-
         return self::$instance;
     }
 

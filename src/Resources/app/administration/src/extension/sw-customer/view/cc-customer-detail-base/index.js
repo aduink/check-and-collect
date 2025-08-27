@@ -4,15 +4,8 @@ const {Component, Mixin} = Shopware;
 
 Component.register('cc-customer-detail-score', {
     template,
-
-    inject: [
-        'solvency'
-    ],
-
-    mixins: [
-        Mixin.getByName('notification')
-    ],
-
+    inject: [ 'solvency' ],
+    mixins: [ Mixin.getByName('notification') ],
     props: {
         customer: {
             type: Object,
@@ -24,56 +17,78 @@ Component.register('cc-customer-detail-score', {
         return {
             activeCustomer: this.customer,
             isLoading: false,
-            // todo after NEXT-2291: to be removed if new emptyState-Splashscreens are implemented
             debtorIcon: 'default-shopping-paper-bag',
-            iframeSrc: 'https://auskunft.adu-inkasso.de/rpclayout/?action=static',
+            iframeUrl: new URL('https://api.adu-inkasso.de/rpc/static'),
+            token: null,
         };
+    },
+    computed: {
+        iframeSrc: {
+            get(){
+                return this.iframeUrl.toString();
+            },
+        },
+        isDisabled: {
+            get(){
+                return this.isLoading;
+            }
+        }
     },
 
     created() {
-        this.solvencyLogin();
+        this.solvency.fillIframeData(this.iframeUrl, "/rpc/debtorCreditHistory")
+            .then(u => {
+                if(!(this.customer?.id)){
+                    throw new Error("Kein Cutomer gefunden");
+                }
+                u.searchParams.set('entity', this.customer.id);
+                this.iframeUrl = u;
+                this.createNotificationSuccess({
+                    title: this.$tc('cc-api-test-button.title'),
+                    message: this.$tc('cc-api-test-button.success')
+                });
+            })
+            .catch(e => {
+                const message = e instanceof Error ? e.message : this.$tc('cc-api-login.error');
+                this.createNotificationError({
+                    title: this.$tc('cc-api-login.title'),
+                    message
+                });
+            })
     },
 
     methods: {
+        onError(namespace, e){
+            console.log("Error", e);
+            this.isLoading = false;
+            this.iframeUrl.pathname = "/rpc/static";
+            const message = e instanceof Error ? e.message : this.$tc(namespace + '.error');
 
-        solvencyLogin() {
-            let vm = this;
-            this.solvency.getToken().then(function(data){
-                if(data.error) throw data.error;
-                const iframeSrc = 'https://auskunft.adu-inkasso.de/rpclayout/?action=debtorCreditHistory&entity=' + vm.customer.id + '&token=';
-                const iframeSrcRedir = iframeSrc.concat('', data.token);
-                vm.iframeSrc = iframeSrcRedir;
-            }).catch(function(err) {
-                const iframeSrcRedir = 'https://auskunft.adu-inkasso.de/rpclayout/?action=debtorCreditHistory&entity=' + vm.customer.id;
-                vm.iframeSrc = iframeSrcRedir;
-                vm.createNotificationError({
-                    title: vm.$tc('cc-api-login.title'),
-                    message: vm.$tc('cc-api-login.error')
-                });
+            this.createNotificationError({
+                title: this.$tc(namespace + '.title'),
+                message,
             });
         },
-        onSave() {
-            let id = this.customer.id;
-            let vm = this;
-            vm.isLoading = true;
-            this.solvency.solvency(vm.customer.id).then(function(data) {
-                if(data == '' || data.error) throw data.error;
-                if(data[0].error != '')  throw data[0].error;
-                vm.createNotificationSuccess({
-                    title: vm.$tc('cc-api-newsolvency-button.title'),
-                    message: vm.$tc('cc-api-newsolvency-button.success')
-                });
-                vm.isLoading = false;
-
-                vm.solvencyLogin();
-
-            }).catch((exception) => {
-                vm.isLoading = false;
-                vm.createNotificationError({
-                    title: vm.$tc('cc-api-newsolvency-button.title'),
-                    message: vm.$tc('cc-api-newsolvency-button.error')
-                });
-            });
+        getSolvency() {
+            if(!this.customer?.id){
+                console.log("Keine customer id gefunden");
+                return;
+            }
+            this.isLoading = true;
+            this.solvency.solvency(this.customer.id)
+                .then(() => {
+                    this.createNotificationSuccess({
+                        title: this.$tc('cc-api-newsolvency-button.title'),
+                        message: this.$tc('cc-api-newsolvency-button.success')
+                    });
+                    this.isLoading = false;
+                    const oldURL = new URL(this.iframeUrl);
+                    const newURL = new URL(this.iframeUrl);
+                    newURL.pathname = "/rpc/static";
+                    this.iframeUrl = newURL;
+                    setTimeout(() => { this.iframeUrl = oldURL }, 300);
+                })
+                .catch(e => this.onError('cc-api-newsolvency-button', e));
         }
     }
 });

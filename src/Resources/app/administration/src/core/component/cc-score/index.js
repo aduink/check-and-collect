@@ -1,9 +1,14 @@
 import template from './cc-score.html.twig';
-const { Component } = Shopware;
 
 
-Component.extend('cc-score', 'sw-condition-base', {
+Shopware.Component.extend('cc-score', 'sw-condition-base', {
     template,
+    data() {
+        return {
+            inputKey: 'isScore',
+            isNumeric: false,
+        };
+    },
     computed: {
         fieldNames() {
             return ['isScore'];

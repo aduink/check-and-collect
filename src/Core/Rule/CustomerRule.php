@@ -4,31 +4,44 @@ declare(strict_types=1);
 
 namespace Adu\CheckAndCollect\Core\Rule;
 
-
-use Shopware\Core\Checkout\CheckoutRuleScope;
-use Shopware\Core\Framework\Rule\Exception\UnsupportedOperatorException;
+use Adu\CheckAndCollect\Model\Scoring;
+use Adu\CheckAndCollect\Service\AduConfig;
 use Shopware\Core\Framework\Rule\Rule;
-use Shopware\Core\Framework\Rule\RuleScope;
+use Symfony\Component\DependencyInjection\Attribute\AsTaggedItem;
 use Symfony\Component\Validator\Constraints\Choice;
 use Symfony\Component\Validator\Constraints\NotBlank;
 use Symfony\Component\Validator\Constraints\Type;
 
 
-
+#[AsTaggedItem('shopware.rule')]
 class CustomerRule extends Rule
 {
+    use RuleTrait;
 
-    protected $isAdditionalinfo;
+    protected int $isAdditionalinfo;
 
-    /**
-     * @var mixed
-     */
+    private const RULESET = [
+        1 => 'Person/Anschrift unbekannt;',             // ConCheck - Achtung, in Doku ist das Feld nur Person unbekannt, kommt aber anders zurück
+        2 => 'Person unbekannt/Anschrift bekannt',      // ConCheck + B2B
+        3 => 'Person/Anschrift bekannt',                // ConCheck + B2B
+        4 => 'Person/Anschrift abweichend',             // ConCheck + B2B
+        5 => 'Mehrere Personen bekannt',                // entfällt - nur zur Kompatibilität beibehalten
+        6 => 'Firma und Anschrift bekannt',             // B2B
+        7 => 'Person/Haushalt/Anschrift bekannt',       // ConCheck AT CH
+        8 => 'Person/Haushalt unbekannt',               // ConCheck AT CH
+        9 => 'Firma/Person unbekannt',                  // B2B
+        10 => 'Firma/Anschrift abweichend',             // B2B
+        11 => 'Mehrere Firmen bekannt',                 // B2B
+    ];
 
+
+    /*
     public function __construct()
     {
         parent::__construct();
         $this->isAdditionalinfo = 1;
     }
+    */
 
 
     /**
@@ -39,76 +52,17 @@ class CustomerRule extends Rule
         return 'additionalinfo';
     }
 
-    /**
-     * @param RuleScope $scope
-     * @return bool
-     */
-    public function match(RuleScope $scope): bool
+    private function compare($text): bool
     {
-        $resultSet = [
-            1 => 'Person/Anschrift unbekannt;',             // ConCheck - Achtung, in Doku ist das Feld nur Person unbekannt, kommt aber anders zurück
-            2 => 'Person unbekannt/Anschrift bekannt',      // ConCheck + B2B
-            3 => 'Person/Anschrift bekannt',                // ConCheck + B2B
-            4 => 'Person/Anschrift abweichend',             // ConCheck + B2B
-            5 => 'Mehrere Personen bekannt',                // entfällt - nur zur Kompatibilität beibehalten
-            6 => 'Firma und Anschrift bekannt',             // B2B
-            7 => 'Person/Haushalt/Anschrift bekannt',       // ConCheck AT CH
-            8 => 'Person/Haushalt unbekannt',               // ConCheck AT CH
-            9 => 'Firma/Person unbekannt',                  // B2B
-            10 => 'Firma/Anschrift abweichend',             // B2B
-            11 => 'Mehrere Firmen bekannt',                 // B2B
-        ];
-
-        // Vollständige Daten werden benötigt.
-        $customer = $scope->getSalesChannelContext()->getCustomer();
-
-        // Aktiv, Checkout und Kunde vorhanden?
-        if (!$scope instanceof CheckoutRuleScope || !$customer) {
-            return true;
-        }
-
-        // Customer Attribute
-        $customArr = $customer->getCustomFields();
-
-        //  Kunde vorhanden schon geprüft?
-        if (NULL != $customArr || (isset($_SESSION) && array_key_exists('score', $_SESSION['_sf2_attributes']))) {
-
-            // Session zugriff bei der ersten Verarbeitung
-            if(NULL == $customArr){
-                $customArr['adu_score_value'] = $_SESSION['_sf2_attributes']['score']['score'];
-                $customArr['adu_additional_value'] = $_SESSION['_sf2_attributes']['score']['additionalInfo'];
-                $customArr['deny_solvencycheck_user'] = NULL;
-            }
-
-            //Scoreinfo
-            if(!isset($customArr['adu_additional_value'])){
-                return true;
-            }
-
-            // Customer ausgenommen von der Prüfung?
-            $denyCustomCheck = (array_key_exists('deny_solvencycheck_user', $customArr)) ? $customArr['deny_solvencycheck_user'] : false;
-
-            if ($denyCustomCheck) {
-                return true;
-            }
-
-            $additionalinfo = $customArr['adu_additional_value'];
-            $ret = false;
-
-            switch ($this->operator) {
-                case self::OPERATOR_EQ:
-                    $ret = strpos($additionalinfo, $resultSet[$this->isAdditionalinfo]) !== false;
-                    break;
-                case self::OPERATOR_NEQ:
-                    $ret = strpos($additionalinfo, $resultSet[$this->isAdditionalinfo]) === false;
-                    break;
-            }
-
-        }else{
-            // Noch nichts ermittelt. Keine Sperrung
-            return true;
-        }
-        return $ret;
+        $ret = $text == self::RULESET[$this->isAdditionalinfo];
+        $return = $this->operator === self::OPERATOR_EQ ? $ret : !$ret;
+        $this->logger->debug("Prüfung in CustomerRule: ", context: [
+            'text' => $text,
+            'operator' => $this->operator,
+            'einstellungs_text' => self::RULESET[$this->isAdditionalinfo],
+            'ergebnis' => $return
+        ]);
+        return $return;
     }
 
     /**
@@ -117,9 +71,7 @@ class CustomerRule extends Rule
     public function getConstraints(): array
     {
         return [
-            'isAdditionalinfo' => [
-                new Type('int')
-            ],
+            'isAdditionalinfo' => [new Type('int')],
             'operator' => [
                 new NotBlank(),
                 new Choice([
@@ -130,4 +82,23 @@ class CustomerRule extends Rule
         ];
     }
 
+    private function getCacheKey(): string
+    {
+        return AduConfig::ADDITIONAL;
+    }
+
+    private function getValueType(): string
+    {
+        return 'string';
+    }
+
+    private function getDefaultValue(bool $b2b): string
+    {
+        return $b2b ? 'Firma/Person unbekannt' : 'Person/Anschrift unbekannt;';
+    }
+
+    private function getValueFromScoring(Scoring $scoring): ?string
+    {
+        return $scoring->getInfo();
+    }
 }
