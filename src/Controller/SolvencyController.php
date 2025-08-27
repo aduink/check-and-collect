@@ -2,9 +2,10 @@
 
 namespace Adu\CheckAndCollect\Controller;
 
-use PHPUnit\Exception;
+use Adu\CheckAndCollect\Service\SoapService;
 use Psr\Container\ContainerExceptionInterface;
 use Psr\Container\NotFoundExceptionInterface;
+use Composer\InstalledVersions;
 use Shopware\Core\Framework\Context;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\Routing\Annotation\Route;
@@ -19,6 +20,20 @@ use Adu\CheckAndCollect\Model\SolvencyDebtorHandler;
  */
 class SolvencyController extends AbstractController
 {
+    /**
+     * @Route("/api/_action/adu/version-request", name="api.action.adu.version-request", methods={"GET"})
+     */
+    public function getVersions(): JsonResponse
+    {
+        try{
+            return new JsonResponse([
+                'shop' => InstalledVersions::getVersion("shopware/core"),
+                'cc' => CHECKANDCOLLECTVERSION
+            ]);
+        }catch (\Exception $e){
+            return new JsonResponse(['error' => $e->getMessage()]);
+        }
+    }
 
     /**
      * @Route("/api/_action/adu/solvency-api-request", name="api.action.adu.solvency-api-request", methods={"GET", "POST"})
@@ -33,26 +48,23 @@ class SolvencyController extends AbstractController
         error_reporting(0);
         $id = $request->request->get('id');
 
-        // Ausführen wenn zuordbar
-        if (isset($id)) {
-            try {
-                // Debitoren handling
-                $debtor = new SolvencyDebtorHandler($this->container, Context::createDefaultContext());
-                $debtorData = $debtor->formDebtorData($id);
+        // Ausführen, wenn zuordbar
+        if (!isset($id)) {
+            return new JsonResponse(['error' => 'Keine CustomerId übergeben']);
+        }
+        try {
+            // Debitoren handling
+            $debtor = new SolvencyDebtorHandler($this->container, Context::createDefaultContext());
+            $debtorData = $debtor->formDebtorData($id);
 
-                // Soap Service laden
-                $soap = $this->container->get('Adu\CheckAndCollect\Service\SoapService');
+            // Soap Service laden
+            $soap = $this->container->get('Adu\CheckAndCollect\Service\SoapService');
 
-                $result = $soap->getSolvencyCheck($debtorData, false);
+            $result = $soap->getSolvencyCheck($debtorData, false);
 
-                return new JsonResponse([$result]);
-            } catch (\Exception $e) {
-                return new JsonResponse(['error' => $e->getMessage()]);
-            }
-        } else {
-            return new JsonResponse([
-                'Keine Daten - ' . $id
-            ]);
+            return new JsonResponse([$result]);
+        } catch (\Exception $e) {
+            return new JsonResponse(['error' => $e->getMessage()]);
         }
     }
 
@@ -66,9 +78,13 @@ class SolvencyController extends AbstractController
     {
         try {
             // Soap Service laden
+            /** @var SoapService $soap */
             $soap = $this->container->get('Adu\CheckAndCollect\Service\SoapService');
 
             $result = $soap->getToken();
+            if(!isset($result['token'])){
+                throw new \Exception("SoapsService hat keinen Token zurückgegeben");
+            }
 
             return new JsonResponse($result);
         } catch (\Exception $e) {
@@ -86,6 +102,7 @@ class SolvencyController extends AbstractController
     {
         try {
             // Soap Service laden
+            /** @var SoapService $soap */
             $soap = $this->container->get('Adu\CheckAndCollect\Service\SoapService');
 
             $result = $soap->getCredits();

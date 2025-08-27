@@ -1,5 +1,6 @@
 <?php
-declare(strict_types = 1);
+declare(strict_types=1);
+
 namespace Adu\CheckAndCollect\Model;
 
 class SoapHandler
@@ -37,8 +38,7 @@ class SoapHandler
         $this->testmode = $testmode;
         try {
             $this->client = new \SoapClient($this->clientUrl, $options);
-        } catch (\SoapFault $e) {
-            return $e->getMessage();
+        } catch (\SoapFault) {
         }
     }
 
@@ -49,32 +49,21 @@ class SoapHandler
      * @param array $params
      * @param boolean $unserialize
      * @return string
+     * @throws \Exception
      */
-    public function callClient(string $method, Array $params = array(), $unserialize = false): string
+    public function callClient(string $method, array $params = [], $unserialize = false): string
     {
-
-        try {
-            if(!isset($this->client)){
-                throw new \Exception('Client failed');
-            }
-
-            $params = array_merge(array(
-                $this->login,
-                $this->password
-            ), $params);
-
-            $response = call_user_func_array(array(
-                $this->client,
-                $method
-            ), $params);
-
-            if ($unserialize) {
-                $response = unserialize($response, false);
-            }
-        } catch (\Exception $e) {
-            throw $e;
+        if (empty($this->login) || empty($this->password)) {
+            throw new \Exception("Zugangsdaten wurden noch nicht angelegt");
+        }
+        if (!isset($this->client)) {
+            throw new \Exception('Client failed');
         }
 
-        return $response;
+        $params = array_merge([ $this->login, $this->password ], $params);
+
+        $response = $this->client->$method(...$params);
+
+        return $unserialize ? unserialize($response) : $response;
     }
 }

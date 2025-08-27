@@ -111,7 +111,9 @@ class SoapService
                 . '@' . InstalledVersions::getReference('shopware/core');
         }
 
-        $customer['birthday'] = (NULL != $customer['birthday'] && !empty($customer['birthday'])) ? date_format($customer['birthday'], "Y-m-d") : '';
+        $customer['birthday'] = $customer['birthday'] instanceof \DateTimeInterface
+            ? date_format($customer['birthday'], "Y-m-d")
+            : '';
 
         $data = array(
             '4', // Bonitätsprüfung
@@ -156,10 +158,12 @@ class SoapService
                     }
 
                     // Format
-                    $score = (string)intval($xml->SCORE_WERT);
-                    $score = $score / 10;
-
-                    $score = ($score == '0') ? '6' : $score;
+                    $score = intval($xml->SCORE_WERT);
+                    if($score){
+                        $score /= 10;
+                    }else{
+                        $score = $this->defaultCustomerScore;
+                    }
 
                     // XML Ausgabe für die Ausgabe in HTML umwandeln
                     $info = (string)$xml->HINWEIS_TEXT;
@@ -177,7 +181,7 @@ class SoapService
 
         // Rückgabe Array
         return [
-            'score' => $score,
+            'score' => floatval($score),
             'additionalInfo' => $info,
             'company' => $company,
             'error' => $error
@@ -186,14 +190,13 @@ class SoapService
 
 
     /**
-     * @return array|mixed|object
+     * @return array{token:string}|null
      */
-    public function getToken()
+    public function getToken(): ?array
     {
         // Test
         $token = $this->soap->callClient('getToken');
-        $tokenResponse = json_decode($token);
-        return $tokenResponse;
+        return json_decode($token, true);
     }
 
     /**
@@ -203,8 +206,7 @@ class SoapService
     {
         // Test
         $credits = $this->soap->callClient('getUserCredits');
-        $creditResponse = json_decode($credits);
-        return $creditResponse;
+        return json_decode($credits, true);
     }
 
     /**

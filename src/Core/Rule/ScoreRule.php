@@ -4,8 +4,7 @@ declare(strict_types=1);
 
 namespace Adu\CheckAndCollect\Core\Rule;
 
-
-use Shopware\Core\Checkout\CheckoutRuleScope;
+use Adu\CheckAndCollect\Service\RuleTrait;
 use Shopware\Core\Framework\Rule\Rule;
 use Shopware\Core\Framework\Rule\RuleScope;
 use Symfony\Component\Validator\Constraints\Type;
@@ -14,26 +13,18 @@ use Symfony\Component\Validator\Constraints\NotBlank;
 use Shopware\Core\Framework\Rule\Exception\UnsupportedOperatorException;
 
 
-
 class ScoreRule extends Rule
 {
 
-    /**
-     * @var float
-     */
-    protected $isScoreValue;
+    use RuleTrait;
 
-    /**
-     * @var mixed
-     */
-    private $soap;
+    protected float $isScoreValue;
 
     public function __construct()
     {
         parent::__construct();
         $this->isScoreValue = 2.7;
-     }
-
+    }
 
     /**
      * @return string
@@ -46,70 +37,57 @@ class ScoreRule extends Rule
     /**
      * @param RuleScope $scope
      * @return bool
+     * @throws \Exception
      */
     public function match(RuleScope $scope): bool
     {
-        // Vollständige Daten werden benötigt.
-        $customer = $scope->getSalesChannelContext()->getCustomer();
+        // Service Locator mit Abhängigkeiten
+        $this->loadLocator();
 
-        // Aktiv, Checkout und Kunde vorhanden?
-        if (!$scope instanceof CheckoutRuleScope || !$customer) {
+        if ($this->shoudlSkipCheck($scope)) {
+            return true;
+        }
+        $score = $this->getCachedScore($scope);
+        if($score !== null){
+            return $this->compare($score);
+        }
+        if($this->cantCheck($scope)){
             return true;
         }
 
-        // Customer Attribute
-        $customArr = $customer->getCustomFields();
-
-        //  Kunde vorhanden schon geprüft?
-        if (NULL != $customArr || (isset($_SESSION) && array_key_exists('score', $_SESSION['_sf2_attributes']))) {
-
-            // Session zugriff bei der ersten Verarbeitung
-            if(NULL == $customArr){
-                $customArr['adu_score_value'] = $_SESSION['_sf2_attributes']['score']['score'];
-                $customArr['adu_additional_value'] = $_SESSION['_sf2_attributes']['score']['additionalInfo'];
-                $customArr['deny_solvencycheck_user'] = NULL;
-            }
-
-            //Score
-            $score = $customArr['adu_score_value'];
-
-            // Customer ausgenommen von der Prüfung?
-            $denyCustomCheck = (array_key_exists('deny_solvencycheck_user', $customArr)) ? $customArr['deny_solvencycheck_user'] : false;
-
-            if ($denyCustomCheck) {
-                return true;
-            }
-        }else{
-            // Noch nichts ermittelt. Keine Sperrung
+        try{
+            /** @var float $score */
+            $score = $this->getNewScore($scope->getSalesChannelContext())['score'];
+            return $this->compare($score);
+        }catch (\Throwable $e){
+            $this->logger("ERROR: ".$e->getMessage(). "\n\n", true);
             return true;
         }
-
-        switch ($this->operator) {
-            case self::OPERATOR_EQ:
-                $ret = $this->isScoreValue === $score;
-                break;
-            case self::OPERATOR_NEQ:
-                $ret = $this->isScoreValue !== $score;
-                break;
-            case self::OPERATOR_LT:
-                $ret = $this->isScoreValue > $score;
-                break;
-            case self::OPERATOR_GT:
-                $ret = $this->isScoreValue < $score;
-                break;
-            case self::OPERATOR_LTE:
-                $ret = $this->isScoreValue >= $score;
-                break;
-            case self::OPERATOR_GTE:
-                $ret = $this->isScoreValue <= $score;
-                break;
-            default:
-                throw new UnsupportedOperatorException((string)$this->isScoreValue, self::class);
-        }
-
-        // Treffer? Dann false
-        return $ret;
     }
+    private function getCachedScore(RuleScope $scope): ?float {
+        $score = $_SESSION['_sf2_attributes']['adu_score_value']['score'] ?? // Score aus session?
+            $scope->getSalesChannelContext()->getCustomer()?->getCustomFields()['adu_score_value'] ??
+            null;
+        if(!$score){
+            return null;
+        }
+        return (float)$score;
+    }
+
+    private function compare($score): bool{
+        $return = match ($this->operator) {
+            self::OPERATOR_EQ => $this->isScoreValue === $score,
+            self::OPERATOR_NEQ => $this->isScoreValue !== $score,
+            self::OPERATOR_LT => $this->isScoreValue > $score,
+            self::OPERATOR_GT => $this->isScoreValue < $score,
+            self::OPERATOR_LTE => $this->isScoreValue >= $score,
+            self::OPERATOR_GTE => $this->isScoreValue <= $score,
+            default => throw new UnsupportedOperatorException("Operator $this->operator not supported.", self::class)
+        };
+        $this->logger($score . " " . $this->operator . " " . $this->isScoreValue . "? ". ($return ? "Ja" : "Nein"));
+        return $return;
+    }
+
 
     /**
      * @return array
@@ -133,5 +111,4 @@ class ScoreRule extends Rule
             ]
         ];
     }
-
 }

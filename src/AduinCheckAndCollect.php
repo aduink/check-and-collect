@@ -11,13 +11,11 @@ use Shopware\Core\Framework\Plugin\Context\UninstallContext;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\EqualsFilter;
 
-define('CHECKANDCOLLECTVERSION', '2.5.3');
+define('CHECKANDCOLLECTVERSION', '2.5.16');
 define('CHECKANDCOLLECTSALT', 'hui3h9T%$T54t$&%)="$&v56');
 
 /**
- *
  * @author brune
- *
  */
 class AduinCheckAndCollect extends Plugin
 {
@@ -130,12 +128,13 @@ class AduinCheckAndCollect extends Plugin
     private function uninstallCustomRules(): void
     {
         try {
+            /** @var Connection $connection */
             $connection = $this->container->get(Connection::class);
             $sql = "DELETE FROM rule_condition WHERE type = ? OR type = ? ;";
             $stmt = $connection->prepare($sql);
             $stmt->bindValue(1, 'additionalinfo');
             $stmt->bindValue(2, 'score');
-            $stmt->execute();
+            $stmt->executeQuery();
         }catch (\Exception $e){
             return ;
         }

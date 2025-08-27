@@ -1,73 +1,82 @@
 <?php
-declare(strict_types = 1);
+declare(strict_types=1);
+
 namespace Adu\CheckAndCollect\Model;
 
+use Psr\Container\ContainerExceptionInterface;
+use Psr\Container\ContainerInterface;
+use Psr\Container\NotFoundExceptionInterface;
+use Shopware\Core\Checkout\Customer\Aggregate\CustomerAddress\CustomerAddressEntity;
+use Shopware\Core\Checkout\Customer\CustomerEntity;
+use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
+use Shopware\Core\Framework\Context;
 
 
 class SolvencyDebtorHandler
 {
-    private $container;
-    private $context;
 
     /**
      * SolvencyDebtorHandler constructor.
-     * @param $container
-     * @param $context
      */
-    public function __construct($container, $context)
+    public function __construct(private readonly ContainerInterface $container, private readonly Context $context)
     {
-        $this->container = $container;
-        $this->context = $context;
     }
 
     /**
-     * @param $id
-     * @return array
+     * @throws NotFoundExceptionInterface
+     * @throws ContainerExceptionInterface
      */
-    public function formDebtorData($id): array
+    public function formDebtorData(string $id): array
     {
         // Nutzer ermitteln
+        /** @var EntityRepository<CustomerEntity> $customerRepository */
         $customerRepository = $this->container->get('customer.repository');
-        $customerCriteria = (new Criteria([$id]))->addAssociation('addresses')->addAssociation('addresses.country');
-        $result = $customerRepository->search($customerCriteria, $this->context)->getEntities();
-        $customers = (version_compare(PHP_VERSION, '8.1.0', '<')) ? current($result) : $result;
-        $addressArr = [];
+        $customerCriteria = (new Criteria([$id]))
+            ->addAssociation('addresses')
+            ->addAssociation('addresses.country');
+
+        $result = $customerRepository
+            ->search($customerCriteria, $this->context)
+            ->getEntities();
 
 
-        // Customer Object
-        foreach($result AS $customer){
+        /** @var CustomerEntity $customer */
+        $customer = $result->first();
 
-            $defaultBillingId = $customer->getDefaultBillingAddressId();
-            $addRow = $customer->getAddresses();
-
-            // Default Billing selektieren
-            foreach($addRow AS $address){
-                // Default Zahler des Kunde wird gescored
-                if($address->getID() == $defaultBillingId){
-                    #$birthday = strftime("%d.%m.%Y", strtotime($customer->getBirthday()->date)); //@todo: bug in 6.3.5
-                    $birthday = '';
-                    $shopsetting = ['salution' => $address->getSalutationId(), 'amount' => '', 'customerEntityId' => $id];
-                    $addressArr = [
-                        'firstname' => $address->getFirstName(),
-                        'lastname' => $address->getLastName(),
-                        'street' => $address->getStreet(),
-                        'housenumber' => '',
-                        'zipcode' => $address->getZipcode(),
-                        'city' => $address->getCity(),
-                        'company' => $address->getCompany(),
-                        'phone' => $address->getPhoneNumber(),
-                        'email' => $customer->getEmail(),
-                        'birthday' =>  $birthday,
-                        'ordernumber' => $customer->getId(),
-                        'country' => ($address->getCountry())->getIso(),
-                        'shopsetting' => $shopsetting,
-                        'customerId' => $customer->getCustomerNumber()
-                    ];
-                }
-            }
+        if($customer === null){
+            return [];
         }
 
-        return $addressArr;
+        $defaultBillingId = $customer->getDefaultBillingAddressId();
+        $addRow = $customer->getAddresses();
+
+        /** @var CustomerAddressEntity $address */
+        $address = $addRow
+            ->filter(fn(CustomerAddressEntity $a) => $a->getId() === $defaultBillingId)
+            ->first();
+        if($address === null){
+            return [];
+        }
+        return [
+            'firstname' => $address->getFirstName(),
+            'lastname' => $address->getLastName(),
+            'street' => $address->getStreet(),
+            'housenumber' => '',
+            'zipcode' => $address->getZipcode(),
+            'city' => $address->getCity(),
+            'company' => $address->getCompany(),
+            'phone' => $address->getPhoneNumber(),
+            'email' => $customer->getEmail(),
+            'birthday' => $customer->getBirthday()?->format("d.m.Y") ?? '',
+            'ordernumber' => $customer->getId(),
+            'country' => $address->getCountry()?->getIso(),
+            'shopsetting' => [
+                'salution' => $address->getSalutationId(),
+                'amount' => '',
+                'customerEntityId' => $id
+            ],
+            'customerId' => $customer->getCustomerNumber()
+        ];
     }
 }
