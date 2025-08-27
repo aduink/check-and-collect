@@ -1,0 +1,22 @@
+{
+    "cc-api-test-button": {
+        "title": "API Test",
+        "success": "Connection was successfully tested",
+        "error": "Connection could not be established. Please check the access data",
+        "button": "Check connection"
+    },
+    "cc-api-newsolvency-button": {
+        "title": "Determine the score",
+        "success": "Data was successfully determined",
+        "error": "Connection could not be established.",
+        "button": "Submit a new score for a fee",
+        "intro": "The information displayed here is date-related data.",
+        "introtitle": "Detail view"
+    },
+    "cc-api-login": {
+        "title": "Check+Collect Login",
+        "success": "Check+Collect Connection established.",
+        "error": "Connection could not be established.",
+        "button": "Submit a new score for a fee"
+    }
+}

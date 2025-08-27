@@ -1,0 +1,22 @@
+{
+    "cc-api-test-button": {
+        "title": "API Test",
+        "success": "Verbindung wurde erfolgreich getestet",
+        "error": "Verbindung konnte nicht hergestellt werden. Bitte prüfe die Zugangsdaten. Speicher zuerst Pluginkonfiguration bevor du den Test ausführts.",
+        "button": "Verbindung testen"
+    },
+    "cc-api-newsolvency-button": {
+        "title": "Score ermitteln",
+        "success": "Daten wurden erfolgreich ermittelt",
+        "error": "Die Daten konnten nicht ermittelt werden.",
+        "button": "Neuen Scorewert kostenpflichtig emitteln",
+        "intro": "Bei den hier angezeigten Informationen handelt es sich um stichtagsbezogene Daten.",
+        "introtitle": "Detailansicht"
+    },
+    "cc-api-login": {
+        "title": "Check+Collect Login",
+        "success": "Verbindung wurde hergestellt.",
+        "error": "Verbindung konnte nicht hergestellt werden.",
+        "button": "Neuen Scorewert kostenpflichtig emitteln"
+    }
+}

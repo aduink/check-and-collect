@@ -1,0 +1,162 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/shopware/platform/master/src/Core/System/SystemConfig/Schema/config.xsd">
+    <card>
+        <title>Access data interface</title>
+        <title lang="de-DE">Zugangsdaten Schnittstelle</title>
+        <input-field>
+            <name>login</name>
+            <label>Login</label>
+            <placeholder>Loginname</placeholder>
+            <helpText>Please enter the username that has been sent to you. You are not yet a customer? Then you can request it at vertrieb@adu-inkasso.de.</helpText>
+            <helpText lang="de-DE">Bitte tragen Sie den Ihnen zugestellen Nutzernamen ein. Sie sind noch kein Kunde? Dann können Sie diese unter vertrieb@adu-inkasso.de anfordern.</helpText>
+        </input-field>
+
+        <input-field type="password">
+            <name>password</name>
+            <label>Password</label>
+            <label lang="de-DE">Passwort</label>
+            <placeholder>Password</placeholder>
+            <placeholder lang="de-DE">Passwort</placeholder>
+            <helpText>Interface password</helpText>
+            <helpText lang="de-DE">Passwort der Schnittstelle</helpText>
+        </input-field>
+        <component name="cc-api-test-button">
+            <name>apiTest</name>
+            <label>Test API connection</label>
+            <label lang="de-DE">API Verbindung testen</label>
+        </component>
+
+	</card>
+	<card>
+		<title>Activate the interface</title>
+        <title lang="de-DE">Schnittstelle aktivieren</title>
+        <input-field type="bool">
+        	<name>activeApi</name>
+        	<label>Check active in checkout</label>
+            <label lang="de-DE">Prüfung im Checkout aktiv</label>
+        	    <options>
+					<option>
+						<id>yes</id>
+            			<name>Yes</name>
+                        <name lang="de-DE">Ja</name>
+            		</option>
+            		<option>
+						<id>no</id>
+            			<name>No</name>
+                        <name lang="de-DE">Nein</name>
+            		</option>
+        		</options>
+        	<helpText>If the check is deactivated, no checks are carried out despite active rules. The value from the "Default creditworthiness value if not determined" field is returned.</helpText>
+            <helpText lang="de-DE">Ist die Prüfung deaktiviert werden trotzt aktiver Regeln keine Prüfungen durchgeführt. Es wird der Wert aus dem Feld "Default-Bonitätswert bei Nichtermittlung" zurückgegeben.</helpText>
+        </input-field>
+
+        <input-field type="bool">
+            <name>checkCompany</name>
+            <label>Should companies be audited?</label>
+            <label lang="de-DE">Sollen Firmen geprüft werden?</label>
+            <options>
+                <option>
+                    <id>yes</id>
+                    <name>Ja</name>
+                </option>
+                <option>
+                    <id>no</id>
+                    <name>Nein</name>
+                </option>
+            </options>
+            <helpText>If the company check is not active, the default creditworthiness value for companies is used. The costs for company exams are different to the B2C area.</helpText>
+            <helpText lang="de-DE">Ist die Firmenprüfung nicht aktiv wird der Default-Bonitätswert für Firmen genutzt. Die Kosten für Firmenprüfungen sind abweichend zum B2C Bereich. Der
+                Service muss durch Check+Collect freigeschaltet werden.</helpText>
+        </input-field>
+
+        <input-field type="bool">
+        	<name>test</name>
+        	<label>Should the test mode be activated?</label>
+            <label lang="de-DE">Soll der Testmodus aktiviert werden?</label>
+        	    <options>
+					<option>
+						<id>yes</id>
+            			<name>Ja</name>
+            		</option>
+            		<option>
+						<id>no</id>
+            			<name>Nein</name>
+            		</option>
+        		</options>
+        	<helpText>The test database is used.</helpText>
+            <helpText lang="de-DE">Es wird die Testdatenbank genutzt.</helpText>
+        </input-field>
+
+	</card>
+
+    <card>
+    	<title>Interface default values</title>
+        <title lang="de-DE">Schnittstelle Standardwerte</title>
+
+
+        <input-field type="float">
+        	<name>defaultCompany</name>
+        	<label>Default credit rating for companies</label>
+            <label lang="de-DE">Default-Bonitätswert bei Firmen</label>
+        	<placeholder>Recommendation: 6</placeholder>
+            <placeholder lang="de-DE">Empfehlung: 6</placeholder>
+        	<helpText>If the company check is not active, this value is transferred to the rule check.</helpText>
+            <helpText lang="de-DE">Ist die Firmenprüfung nicht aktiv wird dieser Wert an die Regelprüfung übergeben.</helpText>
+        	<defaultValue>6</defaultValue>
+        </input-field>
+
+        <input-field type="float">
+        	<name>defaultNoResult</name>
+        	<label>Default creditworthiness value if not determined</label>
+            <label lang="de-DE">Default-Bonitätswert bei Nichtermittlung</label>
+            <placeholder>Recommendation: 6</placeholder>
+        	<placeholder lang="de-DE">Empfehlung: 6</placeholder>
+        	<helpText>If no value could be determined, it is passed on to the rule check.</helpText>
+            <helpText lang="de-DE">Konnte kein Wert ermittelt werden wird dieser an die Regelprüfung übergeben.</helpText>
+        	<defaultValue>6</defaultValue>
+        </input-field>
+
+        <input-field type="int">
+        	<name>maxAge</name>
+        	<label>Maximum age of the exam before re-exam in days</label>
+            <label lang="de-DE">Höchstalter der Prüfung vor Neuprüfung in Tage(n)</label>
+        	<helpText>A new check of the customer will only be carried out if the maximum age has been exceeded.</helpText>
+            <helpText lang="de-DE">Eine erneute Prüfung des Kunden wird nur durchgeführt wenn das Höchstalter überschritten wurden.</helpText>
+        	<defaultValue>10</defaultValue>
+        </input-field>
+    </card>
+    <card>
+        <title>Debug</title>
+        <title lang="de-DE">Debug</title>
+        <input-field type="bool">
+            <name>activeLog</name>
+            <label>Aactivate protocolling</label>
+            <label lang="de-DE">Protokollierung aktivieren</label>
+            <options>
+                <option>
+                    <id>yes</id>
+                    <name>Yes</name>
+                    <name lang="de-DE">Ja</name>
+                </option>
+                <option>
+                    <id>no</id>
+                    <name>No</name>
+                    <name lang="de-DE">Nein</name>
+                </option>
+            </options>
+            <helpText>If the logging is activated, various information is stored in a file in the log directory.</helpText>
+            <helpText lang="de-DE">Ist die Protkollierung aktiviert werden verschiedenste Informationen in eine Datei im Logverzeichnis abgelegt.</helpText>
+        </input-field>
+
+        <input-field type="text">
+            <name>ipAddress</name>
+            <label>Should the check be restricted to an IP address?</label>
+            <label lang="de-DE">Soll die Prüfung auf eine IP Adresse eingeschränkt werden?</label>
+            <placeholder>0.0.0.0</placeholder>
+            <helpText>The check is only carried out for the specified IP address.</helpText>
+            <helpText lang="de-DE">Die Prüfung wird nur bei der angegeben IP Adresse durchgeführt.</helpText>
+        </input-field>
+
+    </card>
+</config>

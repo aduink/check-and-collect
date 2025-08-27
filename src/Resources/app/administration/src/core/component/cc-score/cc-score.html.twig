@@ -1,0 +1,23 @@
+{% block sw_condition_value_content %}
+    <div class="sw-condition-line-item sw-condition__condition-value">
+            <sw-condition-operator-select v-bind="{ operators, condition }"></sw-condition-operator-select>
+
+            <sw-number-field
+                size="medium"
+
+				id="cc-score"
+				name="cc-score"
+                v-model="isScore"
+                numberType="float"
+                :step="0.1"
+                :allowEmpty="false"
+                :value="2.6"
+                :min="1.0"
+                :max="6.0">
+                <template #suffix>
+                    <span>Schulnoten von 1.0 - 6.0</span>
+                </template>
+            </sw-number-field>
+
+    </div>
+{% endblock %}

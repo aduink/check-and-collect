@@ -1,0 +1,40 @@
+{
+    "name" : "aduincheckandcollect/check-and-collect",
+    "description" : "CheckCollect",
+    "license" : "proprietary",
+    "type": "shopware-platform-plugin",
+    "version" : "2.5.3",
+    "authors" : [{
+            "name" : "Allgemeiner Debitoren- und Inkassodienst GmbH"
+        }
+    ],
+    "autoload" : {
+        "psr-4" : {
+            "Adu\\CheckAndCollect\\" : "src/"
+        }
+    },
+    "extra" : {
+        "shopware-plugin-class" : "Adu\\CheckAndCollect\\AduinCheckAndCollect",
+        "copyright" : "(c) adu-inkasso.de",
+        "label" : {
+            "de-DE" : "Check+Collect",
+            "en-GB" : "Check+Collect"
+        },
+        "description": {
+            "de-DE": "Plugin zur Absicherung von Kauf auf Rechnung",
+            "en-GB": "Plugin for securing purchase on account"
+        },
+        "manufacturerLink": {
+            "de-DE": "https://store.shopware.com/allgemeiner-debitoren-und-inkassodienst-gmbh.html",
+            "en-GB": "https://store.shopware.com/en/allgemeiner-debitoren-und-inkassodienst-gmbh.html"
+        },
+        "supportLink": {
+            "de-DE": "https://www.adu-inkasso.de/leistungen/check-and-collect-shopware/",
+            "en-GB": "https://www.adu-inkasso.de/leistungen/check-and-collect-shopware/"
+        }
+    },
+    "require": {
+        "shopware/core": ">=6.4",
+        "ext-soap": "*"
+    }
+}
