@@ -5,7 +5,7 @@ namespace Adu\CheckAndCollect\Controller;
 use Adu\CheckAndCollect\Model\RatingRequest;
 use Adu\CheckAndCollect\Model\Scoring;
 use Adu\CheckAndCollect\Service\ApiService;
-use Adu\CheckAndCollect\Service\Logger;
+use Adu\CheckAndCollect\Service\AduLogger;
 use Composer\InstalledVersions;
 use Shopware\Core\Framework\Api\Context\SystemSource;
 use Shopware\Core\Framework\Context;
@@ -21,11 +21,11 @@ use Symfony\Contracts\Service\Attribute\Required;
 #[\Symfony\Component\Routing\Annotation\Route(defaults: ["_routeScope" => ["api"]])]
 class SolvencyController extends AbstractController
 {
-    private Logger $logger;
+    private AduLogger $logger;
     private ApiService $soap;
 
     #[Required]
-    public function setDependencies(Logger $logger, ApiService $soap): void
+    public function setDependencies(AduLogger $logger, ApiService $soap): void
     {
         $this->logger = $logger;
         $this->soap = $soap;
@@ -82,11 +82,11 @@ class SolvencyController extends AbstractController
     {
         try {
             $resp = $this->json($closure());
-            $this->logger->log("Rückgabe aus dem SolvencyController", context: [$resp->getContent()]);
+            $this->logger->debug("Rückgabe aus dem SolvencyController", context: [$resp->getContent()]);
             return $resp;
 
         } catch (\Throwable $e) {
-            $this->logger->log("Fehlerhafte anfrage", true, [$e]);
+            $this->logger->critical("Fehlerhafte anfrage", [$e]);
             return $this->json(['errors' => [$e->getMessage()]], 500);
         }
     }

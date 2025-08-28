@@ -5,7 +5,9 @@ namespace Adu\CheckAndCollect\Subscriber;
 use Adu\CheckAndCollect\Model\ServiceLocator;
 use Adu\CheckAndCollect\Service\AduConfig;
 use Adu\CheckAndCollect\Service\ConfiguredService;
-use Adu\CheckAndCollect\Service\Logger;
+use Adu\CheckAndCollect\Service\AduLogger;
+use Shopware\Core\Checkout\Cart\Event\CheckoutOrderPlacedCriteriaEvent;
+use Shopware\Core\Checkout\Cart\Event\CheckoutOrderPlacedEvent;
 use Shopware\Core\Checkout\Cart\SalesChannel\CartService;
 use Shopware\Core\Checkout\Payment\PaymentMethodEntity;
 use Shopware\Core\Content\Rule\RuleEntity;
@@ -39,16 +41,17 @@ class FrontendCheckoutFinishOrder
     private readonly ?SessionInterface $session;
     private readonly ServiceLocator $locator;
 
-    // Die Eine Route für Standard Storefront die andere für Headless api
-    private const CHECKOUT_ROUTES = ["store-api.checkout.cart.order", "frontend.checkout.finish.order"];
+    // Die eine Route für Standard Storefront die andere für Headless api
+    private const CHECKOUT_ROUTES = ["store-api.checkout.cart.order", "frontend.checkout.finish.order", "frontend.account.edit-order.update-order"];
 
 
     public function __construct(
         protected ApiService       $apiService,
         protected EntityRepository $ruleRepository,
         protected EntityRepository $customerRepository,
+        protected EntityRepository $paymentMethodRepository,
         protected CartService      $cartService,
-        protected Logger           $logger,
+        protected AduLogger        $logger,
         RequestStack               $requestStack
     )
     {
@@ -81,7 +84,7 @@ class FrontendCheckoutFinishOrder
     public function ruleLoadedListener(
         //EntityLoadedEvent $event
     ): void {
-        $this->logger->log("Rule loaded!");
+        $this->logger->debug("Rule loaded!");
     }
 
     #[AsEventListener(event: SalesChannelContextCreatedEvent::class)]
@@ -89,47 +92,73 @@ class FrontendCheckoutFinishOrder
     {
         // Just to initialize the service before the sales channel rules are evaluated
     }
+    #[AsEventListener(CheckoutOrderPlacedCriteriaEvent::class)]
+    public function orderPlacedListener(): void
+    {
+        $this->logger->debug("CheckoutOrderPlacedCriteria");
+    }
+    #[AsEventListener(CheckoutOrderPlacedEvent::class)]
+    public function orderPlacedListenerEvent(): void
+    {
+        $this->logger->debug("CheckoutOrderPlaced");
+    }
 
     #[AsEventListener(event: ControllerArgumentsEvent::class)]
     public function onFrontendCheckoutFinishOrder(ControllerArgumentsEvent $event): void
     {
         $route = $event->getRequest()->attributes->get('_route');
+        if($this->logger->isActive() && !in_array($route, ['api.notification.message', 'api.action.message-queue.consume', 'api.info.queue', 'api.action.scheduled-task.run'])){
+            $this->logger->debug("Route $route");
+        }
+
+        // TODO: Wenn route order update und input mit paymentMethodId existent
         if (!in_array($route, self::CHECKOUT_ROUTES) || !$this->shouldCheck()) {
             // Manche Shopbetreiber loggen sich für mehrere Kunden hintereinander ein und bestellen für sie.
             // So kann für jeden eingeloggten Kunden ein neuer Score gezogen werden
             if ($route === "frontend.account.login.imitate-customer") {
                 $v = $this->session->remove('adu_score_value');
-                $this->logger->log("Neuer Kunde wird imitiert. Adu_score_value wird aus Session gelöscht", context: $v ?? []);
+                $this->logger->debug("Neuer Kunde wird imitiert. Adu_score_value wird aus Session gelöscht", context: $v ?? []);
             }
             return;
         }
-        $this->logger->log("Checkout Route wurde aufgerufen", context: [$route]);
-        try {
-            $salesChannelContext = $this->getSalesChannelContext($event);
-        } catch (\Exception $e) {
-            $this->logger->log('SalesChannelContext konnte nicht geladen werden', true, [$e]);
-            return;
+        if($route === 'frontend.account.edit-order.update-order' && !$event->getRequest()->get('paymentMethodId')){
+            // Order wurde geupdated aber Zahlungsmethode wurde nicht verändertr
+            $this->logger->debug("Bestellung wurde verädnert aber die Zahlungsmethode hat sich nicht verändert");
         }
-
-        $payment = $salesChannelContext->getPaymentMethod();
-        if($this->paymentMethodHasAduRule($payment)){
-            $this->kickstartCreditCheck($salesChannelContext);
+        try {
+            $this->validateEvent($event);
+        } catch (\Exception $e) {
+            $this->logger->critical('Prüfung des Event ist Fehlgeschlagen', [$e]);
         }
     }
 
     /**
-     * Prüft ob die übergebene Zahlungsmethode eine AvailabillityRule hat, und ob diese Eine kostenpflichtige Scoreabfrage benötigt
+     * @throws \Exception
+     */
+    private function validateEvent(ControllerArgumentsEvent $event): void
+    {
+        $salesChannelContext = $this->getSalesChannelContext($event);
+        $payment = $salesChannelContext->getPaymentMethod();
+        if($this->paymentMethodHasAduRule($payment)){
+            $this->kickstartCreditCheck($salesChannelContext);
+        }else{
+            $this->logger->debug("Zahlungsmethode: ". $payment->getName(). " soll nicht geprüft werden");
+        }
+    }
+
+    /**
+     * Prüft, ob die übergebene Zahlungsmethode eine AvailabillityRule hat, und ob diese Eine kostenpflichtige Scoreabfrage benötigt
      */
     private function paymentMethodHasAduRule(PaymentMethodEntity $payment): bool {
-        $this->logger->log('Prüfung der Zahlungsmethode ' . $payment->getName());
+        $this->logger->debug('Prüfung der Zahlungsmethode ' . $payment->getName());
         $availabilityRuleId = $payment->getAvailabilityRuleId();
         if (!$availabilityRuleId) {
-            $this->logger->log("Der Zahlungsmethode sind keine Verfügbarkeitsregeln zugeordnet");
+            $this->logger->debug("Der Zahlungsmethode sind keine Verfügbarkeitsregeln zugeordnet");
             return false;
         }
         $rules = $this->getRules($availabilityRuleId);
         if (!$rules->getTotal()) {
-            $this->logger->log("Der Zahlungsmethode sind keine Bonitätsregeln zugewiesen");
+            $this->logger->debug("Der Zahlungsmethode sind keine Bonitätsregeln zugewiesen");
             return false;
         }
         return true;
@@ -137,7 +166,7 @@ class FrontendCheckoutFinishOrder
 
     private function kickstartCreditCheck(SalesChannelContext $salesChannelContext): void
     {
-        $this->logger->log("API-Zugriff wird freigeschaltet");
+        $this->logger->info("API-Zugriff wird freigeschaltet");
 
         // Sobald die Regeln Zugriff auf den ApiService haben, haben Sie die Möglichkeit über die API auf einen neuen Score zuzugreifen
         $this->apiService->setScope($salesChannelContext->getSalesChannel()->getId());
@@ -184,12 +213,12 @@ class FrontendCheckoutFinishOrder
     {
         if (!$this->config->activeApi()) {
             // Einstellung haben die Prüfung deaktiviert
-            $this->logger->log("Prüfung ist durch die Plugin-Einstellung deaktiviert");
+            $this->logger->debug("Prüfung ist durch die Plugin-Einstellung deaktiviert");
             return false;
         }
         $ip = $this->config->ipAddress();
         if ($ip) {
-            $this->logger->log("Die Prüfung ist auf eine Spezifische IP beschränkt. Match? " . ($_SERVER['REMOTE_ADDR'] === $ip ? "Ja" : "Nein"));
+            $this->logger->debug("Die Prüfung ist auf eine Spezifische IP beschränkt. Match? " . ($_SERVER['REMOTE_ADDR'] === $ip ? "Ja" : "Nein"));
             // Prüfung wurde auf eine spezifische IP eingeschränkt
             return $_SERVER['REMOTE_ADDR'] === $ip;
         }

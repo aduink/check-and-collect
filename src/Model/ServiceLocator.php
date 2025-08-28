@@ -4,7 +4,7 @@ namespace Adu\CheckAndCollect\Model;
 
 use Adu\CheckAndCollect\Service\AduConfig;
 use Adu\CheckAndCollect\Service\ApiService;
-use Adu\CheckAndCollect\Service\Logger;
+use Adu\CheckAndCollect\Service\AduLogger;
 use Shopware\Core\Checkout\Cart\SalesChannel\CartService;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
 use Symfony\Component\HttpFoundation\Session\SessionInterface;
@@ -16,7 +16,7 @@ class ServiceLocator
     public function __construct(
         public ?ApiService       $ccApi,
         public ?SessionInterface $ccSession,
-        public Logger            $ccLogger,
+        public AduLogger         $ccLogger,
         public EntityRepository  $ccRepo,
         public AduConfig         $ccConfig,
         public CartService       $ccCart,

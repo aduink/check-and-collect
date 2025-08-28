@@ -250,7 +250,7 @@ class RatingRequest
             'shopSetting' => [
                 'shop' => $this->getShopwareVersion(),
                 'maxTime' => $config->maxAge(),
-                'customerId' => $this->customer->getCustomerNumber(),
+                'customerId' => null,
                 'customerEntityId' => $this->customer->getId(),
                 'amount' => $this->amount,
                 'checkAndCollect' => CHECKANDCOLLECTVERSION,

@@ -53,7 +53,7 @@ class AwarenessRule extends Rule
     {
         $ret = in_array($code, self::RULESET[$this->isCode]);
         $return = $this->operator === self::OPERATOR_EQ ? $ret : !$ret;
-        $this->logger->log("Prüfung in AwarenessRule: ", context: [
+        $this->logger->debug("Prüfung in AwarenessRule: ", context: [
             'code' => $code,
             'operator' => $this->operator,
             'einstellungs_codes' => self::RULESET[$this->isCode],

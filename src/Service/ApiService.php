@@ -25,7 +25,7 @@ class ApiService
     use ConfiguredService;
 
     public function __construct(
-        private readonly Logger           $logger,
+        private readonly AduLogger        $logger,
         private readonly AduApi           $api,
         private readonly EntityRepository $customerRepository,
     )
@@ -49,17 +49,17 @@ class ApiService
     {
         $customer = $request->customer;
         $add = $request->address;
-        $this->logger->log("Getting New SolvencyCheck Form CustomerId: " . $customer->getId());
+        $this->logger->debug("Getting New SolvencyCheck Form CustomerId: " . $customer->getId());
 
         $defaultScore = $this->config->defaultCustomerScore();
         try {
             $res = $this->api->getConsumerCheck($request);
             $scoring = new Scoring($res, $defaultScore, $add);
-            $this->logger->log("Scoring: ", context: [$scoring]);
+            $this->logger->debug("Scoring: ", context: [$scoring]);
             $this->saveScoring($customer, $scoring);
         } catch (CustomerCannotBeScoredException|WrongProductRequested $e){
             // Diese Exceptions bedeuten, dass der Kunde wie er jetzt ist nicht gescored werden kann
-            $this->logger->log("Kunde kann mit dieser Adresse nicht angefragt werden: ", context: [[
+            $this->logger->debug("Kunde kann mit dieser Adresse nicht angefragt werden: ", context: [[
                 'message' => $e->getMessage(),
                 'description' => $e->describe()
             ]]);
@@ -68,7 +68,7 @@ class ApiService
         } catch (CCException $e) {
             // Andere Exceptions hängen nicht mit dem angefragten Kunden zusammen und könnten jederzeit behoben werden
             // Die können vielleicht in der Session gespeichert werden aber definitiv nicht in den Customfields
-            $this->logger->log("Fehler Bei der Anfrage: ", context: [[
+            $this->logger->debug("Fehler Bei der Anfrage: ", context: [[
                 'message' => $e->getMessage(),
                 'description' => $e->describe()
             ]]);
@@ -88,7 +88,7 @@ class ApiService
         $customFields = array_merge($customFields, $newValues);
 
         $this->customerRepository->update([['id' => $customer->getId(), 'customFields' => $customFields]], new Context(new SystemSource()));
-        $this->logger->log('Customfields werden aktualisiert.', context: $customFields);
+        $this->logger->debug('Customfields werden aktualisiert.', context: $customFields);
     }
 
     /**

@@ -48,7 +48,7 @@ class ScoreRule extends Rule
             self::OPERATOR_GTE => $this->isScoreValue <= $score,
             default => throw new UnsupportedOperatorException("Operator $this->operator not supported.", self::class)
         };
-        $this->logger->log("Prüfung in ScoreRule: ", context: [
+        $this->logger->debug("Prüfung in ScoreRule: ", context: [
             'score' => $score,
             'operator' => $this->operator,
             'einstellungs_score' => $this->isScoreValue,

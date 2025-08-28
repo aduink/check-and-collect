@@ -7,14 +7,14 @@ use Adu\CheckAndCollect\Exception\CCException;
 use Adu\CheckAndCollect\Exception\InvalidResponse;
 use Adu\CheckAndCollect\Exception\NoCredentialsException;
 use Adu\CheckAndCollect\Service\ConfiguredService;
-use Adu\CheckAndCollect\Service\Logger;
+use Adu\CheckAndCollect\Service\AduLogger;
 
 class AduApi
 {
     use ConfiguredService;
 
     public function __construct(
-        private readonly Logger $log,
+        private readonly AduLogger $log,
     )
     {
     }
@@ -78,7 +78,7 @@ class AduApi
         if ($parser->isBusiness() && !$this->config->checkCompany()) {
             throw new B2bRequestNotActivated;
         }
-        $this->log->log("ADU-API wird angefragt");
+        $this->log->info("ADU-API wird angefragt");
 
         $response = $this->request(
             "POST",

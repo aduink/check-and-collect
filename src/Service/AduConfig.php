@@ -12,6 +12,7 @@ class AduConfig
     final const SCORE = 'adu_score_value';
     final const LAST_SCORE_TIME = 'adu_last_check';
     final const SKIP_CHECK = 'deny_solvencycheck_user';
+    final const TEMP_BLOCK_CHECK = 'adu_temp_block_check_for_recursive_api';
 
     private ?string $salesChannelId = null;
 

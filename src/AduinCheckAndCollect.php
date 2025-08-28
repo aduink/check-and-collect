@@ -5,7 +5,7 @@ namespace Adu\CheckAndCollect;
 
 use Adu\CheckAndCollect\Service\AduConfig;
 use Shopware\Core\Framework\Context;
-use Adu\CheckAndCollect\Service\Logger;
+use Adu\CheckAndCollect\Service\AduLogger;
 use Doctrine\DBAL\Connection;
 use Shopware\Core\Framework\App\Manifest\Xml\CustomField\CustomFieldSet;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
@@ -36,7 +36,7 @@ define('CHECKANDCOLLECTSALT', 'hui3h9T%$T54t$&%)="$&v56');
  */
 class AduinCheckAndCollect extends Plugin
 {
-    private ?Logger $logger = null;
+    private ?AduLogger $logger = null;
     private ?EntityRepository $customFieldSetRepository = null;
     const customFieldName = "adu_solvencysettings";
     const ruleNames = ['additionalinfo', 'score', 'awareness'];
@@ -120,7 +120,7 @@ class AduinCheckAndCollect extends Plugin
         try {
             $this->installCustomFields($installContext->getContext());
         } catch (\Exception $e) {
-            $this->logger?->log($e->getMessage(), true);
+            $this->logger?->critical($e->getMessage());
         }
     }
 
@@ -208,7 +208,7 @@ class AduinCheckAndCollect extends Plugin
                 ->prepare("DELETE FROM rule_condition WHERE type IN ($content)")
                 ->executeQuery(self::ruleNames);
         } catch (\Exception $e) {
-            $this->logger?->log($e->getMessage(), true);
+            $this->logger?->critical($e->getMessage());
             return;
         }
     }
@@ -223,7 +223,7 @@ class AduinCheckAndCollect extends Plugin
     }
 
     #[Required]
-    public function setLogger(Logger $logger): void
+    public function setLogger(AduLogger $logger): void
     {
         $this->logger = $logger;
     }

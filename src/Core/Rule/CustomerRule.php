@@ -56,7 +56,7 @@ class CustomerRule extends Rule
     {
         $ret = $text == self::RULESET[$this->isAdditionalinfo];
         $return = $this->operator === self::OPERATOR_EQ ? $ret : !$ret;
-        $this->logger->log("Prüfung in CustomerRule: ", context: [
+        $this->logger->debug("Prüfung in CustomerRule: ", context: [
             'text' => $text,
             'operator' => $this->operator,
             'einstellungs_text' => self::RULESET[$this->isAdditionalinfo],
