@@ -276,6 +276,6 @@ trait RuleTrait
         return $this->session->get(AduConfig::TEMP_BLOCK_CHECK, false);
     }
     private function liftBlockCheck(): void{
-        $this->session->set(AduConfig::TEMP_BLOCK_CHECK, true);
+        $this->session->set(AduConfig::TEMP_BLOCK_CHECK, false);
     }
 }
