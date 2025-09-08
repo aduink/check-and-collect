@@ -26,7 +26,7 @@ use Symfony\Component\DependencyInjection\Loader\YamlFileLoader;
 use Symfony\Component\Config\FileLocator;
 use Symfony\Contracts\Service\Attribute\Required;
 
-define('CHECKANDCOLLECTVERSION', '2.6.11');
+define('CHECKANDCOLLECTVERSION', '2.6.13');
 define('CHECKANDCOLLECTSALT', 'hui3h9T%$T54t$&%)="$&v56');
 
 /**
