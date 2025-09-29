@@ -35,6 +35,7 @@
     },
     "require": {
         "shopware/core": "6.5.*",
-        "ext-soap": "*"
+        "ext-soap": "*",
+        "ext-simplexml": "*"
     }
 }
