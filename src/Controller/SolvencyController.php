@@ -83,7 +83,7 @@ class SolvencyController extends AbstractController
 
             $result = $soap->getToken();
             if(!isset($result['token'])){
-                throw new \Exception("SoapsService hat keinen Token zurückgegeben");
+                throw new \Exception("SoapsService hat keinen Token zurückgegeben: ". json_encode($result));
             }
 
             return new JsonResponse($result);

@@ -11,7 +11,7 @@ use Shopware\Core\Framework\Plugin\Context\UninstallContext;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\EqualsFilter;
 
-define('CHECKANDCOLLECTVERSION', '2.5.16');
+define('CHECKANDCOLLECTVERSION', '2.5.17');
 define('CHECKANDCOLLECTSALT', 'hui3h9T%$T54t$&%)="$&v56');
 
 /**
