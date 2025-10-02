@@ -34,7 +34,7 @@
         }
     },
     "require": {
-        "shopware/core": ">=6.4.16 <6.5.0",
+        "shopware/core": ">=6.4.16 <6.6.0",
         "php": ">=8.0",
         "ext-soap": "*",
         "ext-simplexml": "*"
