@@ -4,14 +4,16 @@ declare(strict_types=1);
 
 namespace Adu\CheckAndCollect\Core\Rule;
 
-use Adu\CheckAndCollect\Service\RuleTrait;
+use Adu\CheckAndCollect\Model\Scoring;
+use Adu\CheckAndCollect\Service\AduConfig;
 use Shopware\Core\Framework\Rule\Rule;
-use Shopware\Core\Framework\Rule\RuleScope;
+use Symfony\Component\DependencyInjection\Attribute\AsTaggedItem;
 use Symfony\Component\Validator\Constraints\Choice;
 use Symfony\Component\Validator\Constraints\NotBlank;
 use Symfony\Component\Validator\Constraints\Type;
 
 
+#[AsTaggedItem('shopware.rule')]
 class CustomerRule extends Rule
 {
     use RuleTrait;
@@ -32,15 +34,14 @@ class CustomerRule extends Rule
         11 => 'Mehrere Firmen bekannt',                 // B2B
     ];
 
-    /**
-     * @var mixed
-     */
 
+    /*
     public function __construct()
     {
         parent::__construct();
         $this->isAdditionalinfo = 1;
     }
+    */
 
 
     /**
@@ -51,47 +52,16 @@ class CustomerRule extends Rule
         return 'additionalinfo';
     }
 
-    /**
-     * @param RuleScope $scope
-     * @return bool
-     */
-    public function match(RuleScope $scope): bool
+    private function compare($text): bool
     {
-        // Service Locator mit Abhängigkeiten
-        $this->loadLocator();
-
-        if ($this->shoudlSkipCheck($scope)) {
-            return true;
-        }
-
-        $info = $this->getCachedInfo($scope);
-        if($info !== null){
-            return $this->compare($info);
-        }
-
-        if($this->cantCheck($scope)){
-            return true;
-        }
-
-        try{
-            /** @var string $additionalinfo */
-            $additionalinfo = $this->getNewScore($scope->getSalesChannelContext())['additionalInfo'];
-            return $this->compare($additionalinfo);
-        }catch (\Throwable $e){
-            $this->logger("ERROR: ".$e->getMessage(). "\n\n", true);
-            return true;
-        }
-    }
-
-    private function getCachedInfo(RuleScope $scope): ?string {
-        return $_SESSION['_sf2_attributes']['adu_score_value']['additionalInfo'] ??
-            $scope->getSalesChannelContext()->getCustomer()?->getCustomFields()['adu_additional_value'] ??
-            null;
-    }
-    private function compare(string $info): bool {
-        $ret = str_contains($info, self::RULESET[$this->isAdditionalinfo]);
-        $return =  $this->operator === self::OPERATOR_EQ ? $ret : !$ret;
-        $this->logger(self::RULESET[$this->isAdditionalinfo]." in $info?". ($ret ? "Ja" : "Nein"));
+        $ret = $text == self::RULESET[$this->isAdditionalinfo];
+        $return = $this->operator === self::OPERATOR_EQ ? $ret : !$ret;
+        $this->logger->debug("Prüfung in CustomerRule: ", context: [
+            'text' => $text,
+            'operator' => $this->operator,
+            'einstellungs_text' => self::RULESET[$this->isAdditionalinfo],
+            'ergebnis' => $return
+        ]);
         return $return;
     }
 
@@ -101,9 +71,7 @@ class CustomerRule extends Rule
     public function getConstraints(): array
     {
         return [
-            'isAdditionalinfo' => [
-                new Type('int')
-            ],
+            'isAdditionalinfo' => [new Type('int')],
             'operator' => [
                 new NotBlank(),
                 new Choice([
@@ -114,4 +82,23 @@ class CustomerRule extends Rule
         ];
     }
 
+    private function getCacheKey(): string
+    {
+        return AduConfig::ADDITIONAL;
+    }
+
+    private function getValueType(): string
+    {
+        return 'string';
+    }
+
+    private function getDefaultValue(bool $b2b): string
+    {
+        return $b2b ? 'Firma/Person unbekannt' : 'Person/Anschrift unbekannt;';
+    }
+
+    private function getValueFromScoring(Scoring $scoring): ?string
+    {
+        return $scoring->getInfo();
+    }
 }

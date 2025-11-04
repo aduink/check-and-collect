@@ -9,7 +9,7 @@
             <label>Login</label>
             <placeholder>Loginname</placeholder>
             <helpText>Please enter the username that has been sent to you. You are not yet a customer? Then you can request it at vertrieb@adu-inkasso.de.</helpText>
-            <helpText lang="de-DE">Bitte tragen Sie den Ihnen zugestellen Nutzernamen ein. Sie sind noch kein Kunde? Dann können Sie diese unter vertrieb@adu-inkasso.de anfordern.</helpText>
+            <helpText lang="de-DE">Bitte tragen Sie den Ihnen zugestellten Nutzernamen ein. Sie sind noch kein Kunde? Dann können Sie diese unter vertrieb@adu-inkasso.de anfordern.</helpText>
         </input-field>
 
         <input-field type="password">

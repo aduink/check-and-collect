@@ -1,0 +1,8 @@
+monolog:
+  channels: [ 'adu_cc' ]
+  handlers:
+    aduLoader:
+      type: rotating_file
+      path: "%kernel.logs_dir%/checkandcollect_%kernel.environment%.log"
+      level: debug
+      channels: [ "adu_cc" ]
