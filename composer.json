@@ -38,5 +38,10 @@
         "php": ">=8.0",
         "ext-soap": "*",
         "ext-simplexml": "*"
+    },
+    "config": {
+        "allow-plugins": {
+            "symfony/runtime": true
+        }
     }
 }
