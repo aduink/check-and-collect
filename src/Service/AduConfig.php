@@ -6,13 +6,13 @@ use Shopware\Core\System\SystemConfig\SystemConfigService;
 
 class AduConfig
 {
-    final const CHECKED_ADDRESS_ID = 'adu_checked_address_id';
-    final const ADDITIONAL = 'adu_additional_value';
-    final const AWARENESS = 'adu_ident_code';
-    final const SCORE = 'adu_score_value';
-    final const LAST_SCORE_TIME = 'adu_last_check';
-    final const SKIP_CHECK = 'deny_solvencycheck_user';
-    final const TEMP_BLOCK_CHECK = 'adu_temp_block_check_for_recursive_api';
+    const CHECKED_ADDRESS_ID = 'adu_checked_address_id';
+    const ADDITIONAL = 'adu_additional_value';
+    const AWARENESS = 'adu_ident_code';
+    const SCORE = 'adu_score_value';
+    const LAST_SCORE_TIME = 'adu_last_check';
+    const SKIP_CHECK = 'deny_solvencycheck_user';
+    const TEMP_BLOCK_CHECK = 'adu_temp_block_check_for_recursive_api';
 
     private ?string $salesChannelId = null;
 
