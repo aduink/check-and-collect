@@ -245,11 +245,7 @@ trait RuleTrait
             $this->logger->debug("Für den ausgewählten User wurde die Bonitätsprüfung manuell deaktiviert");
             return true;
         }
-        if($this->session === null){
-            $this->logger->debug("Es konnte keine Session gefunden werden");
-            return true;
-        }
-        if($this->getBlocked()){
+        if($this->isBlocked()){
             $this->logger->debug("Prüfung temporär blockiert");
             return true;
         }
@@ -260,26 +256,26 @@ trait RuleTrait
         return false;
     }
     private function getGoodsAmount(SalesChannelContext $context): float {
-        // Da der CartService zur rekursiven ausführen von Regeln führt, muss das Rating an dieser Stelle blockiert werden
-        $this->setBlocked();
         try {
-            return $this->cartService
-                ->getCart($context->getToken(), $context)
-                ->getPrice()
-                ->getTotalPrice();
+            // Loops müssen verhindert werden
+            $this->blockCheck();
+            $cart = $this->cartService->getCart($context->getToken(), $context);
+            $ret = $cart->getPrice()->getTotalPrice();
+            $this->liftBlockCheck();
+            return $ret;
         } catch (\Throwable $e) {
+            $this->liftBlockCheck();
             $this->logger->critical($e->getMessage());
             return 0.0;
-        } finally {
-            $this->setBlocked(false);
         }
     }
-    private function setBlocked(bool $blocked = true): void{
-        $this->session
-            ?->set(AduConfig::TEMP_BLOCK_CHECK, $blocked);
+    private function blockCheck(): void{
+        $this->session?->set(AduConfig::TEMP_BLOCK_CHECK, true);
     }
-    private function getBlocked(): bool{
-        return $this->session
-            ?->get(AduConfig::TEMP_BLOCK_CHECK, false) ?? true;
+    private function isBlocked(): bool{
+        return $this->session?->get(AduConfig::TEMP_BLOCK_CHECK, false) ?? false;
+    }
+    private function liftBlockCheck(): void{
+        $this->session?->set(AduConfig::TEMP_BLOCK_CHECK, false);
     }
 }
