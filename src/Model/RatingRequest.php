@@ -53,9 +53,8 @@ class RatingRequest
      */
     public function validate(AduConfig $config): void
     {
-        $len = $this->countryIso === "DE" ? 5 : 4;
-        $zip = $this->address->getZipcode() ?? '';
-        if(strlen($zip) !== $len){
+        $zip = trim($this->address->getZipcode() ?? '');
+        if($this->countryIso === "DE" && strlen($zip) !== 5){
             throw new CustomerCannotBeScoredException("Invalid Zip for $this->countryIso ($zip)");
         }
         if ($this->isBusiness() && !$config->checkCompany()) {
@@ -244,8 +243,8 @@ class RatingRequest
             'name' => $this->name,
             'street' => $this->street,
             'house' => $this->house,
-            'zip' => $this->address->getZipcode(),
-            'city' => $this->address->getCity(),
+            'zip' => trim($this->address->getZipcode()),
+            'city' => trim($this->address->getCity()),
             'test' => $config->test(),
             'shopSetting' => [
                 'shop' => $this->getShopwareVersion(),

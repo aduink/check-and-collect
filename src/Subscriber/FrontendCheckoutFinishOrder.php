@@ -182,7 +182,6 @@ class FrontendCheckoutFinishOrder
     {
         $context = $event->getArguments();
 
-        // Gggfls variable
         /** @var SalesChannelContext[] $salesChannelContexts */
         $salesChannelContexts = array_filter($context, fn($c) => $c instanceof SalesChannelContext);
         $salesChannelContext = array_pop($salesChannelContexts);
