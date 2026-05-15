@@ -87,6 +87,24 @@
         	<helpText>The test database is used.</helpText>
             <helpText lang="de-DE">Es wird die Testdatenbank genutzt.</helpText>
         </input-field>
+        <input-field type="single-select">
+            <name>whichAddress</name>
+            <label>Which address should be checked?</label>
+            <label lang="de-DE">Welche der Adressen soll geprüft werden?</label>
+            <defaultValue>delivery</defaultValue>
+            <options>
+                <option>
+                    <id>delivery</id>
+                    <name>Lieferadresse</name>
+                </option>
+                <option>
+                    <id>billing</id>
+                    <name>Rechnungsadresse</name>
+                </option>
+            </options>
+            <helpText>Default is delivery address</helpText>
+            <helpText lang="de-DE">Bei keiner Einstellung wird die Lieferadresse geprüft</helpText>
+        </input-field>
 
 	</card>
 

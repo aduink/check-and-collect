@@ -85,7 +85,7 @@ class RatingRequest
     /**
      * @throws CustomerCannotBeScoredException
      */
-    public static function getAddressFromCustomer(CustomerEntity $customer): CustomerAddressEntity {
+    public static function getAddressFromCustomer(CustomerEntity $customer, bool $preferDelivery = true): CustomerAddressEntity {
         $billing = $customer->getActiveBillingAddress() ?? $customer->getDefaultBillingAddress();
         $shipping = $customer->getActiveShippingAddress() ?? $customer->getDefaultShippingAddress();
         if (!($shipping && $billing)) {
@@ -104,19 +104,16 @@ class RatingRequest
         if ($shipping->getId() === $billing->getId()) {
             return $shipping;
         }
-        if ($shipping->getFirstName() === $billing->getFirstName() && $shipping->getLastName() === $billing->getLastName()) {
-            return $billing; // Der Kunde hat verschiedene Adressen mit dem gleichen Namen. Dann ist wahrscheinlich die Rechnungsadresse seine Residenz
-        }
-        return $shipping; // Um Fraud zu verhindern wird bei 2 verschiedenen Adressen zu verhindert wird dann auf die Lieferadresse zugegriffen
+        return $preferDelivery ? $shipping : $billing;
     }
 
     /**
      * @throws CustomerCannotBeScoredException
      */
-    public static function fromCustomer(CustomerEntity $customer): RatingRequest
+    public static function fromCustomer(CustomerEntity $customer, bool $preferDeliveryAddress = true): RatingRequest
     {
         if(!isset(self::$instances[$customer->getId()])){
-            $address = self::getAddressFromCustomer($customer);
+            $address = self::getAddressFromCustomer($customer, $preferDeliveryAddress);
             self::$instances[$customer->getId()] =  new self($address, $customer);
         }
         return self::$instances[$customer->getId()];

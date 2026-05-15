@@ -34,6 +34,10 @@ class AduConfig
     {
         return $this->get('test', false);
     }
+    public function checkDelivery(): bool
+    {
+        return $this->get('whichAddress', 'delivery') === 'delivery';
+    }
 
     public function maxAge(): int
     {

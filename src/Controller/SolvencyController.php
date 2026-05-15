@@ -6,6 +6,7 @@ use Adu\CheckAndCollect\Model\RatingRequest;
 use Adu\CheckAndCollect\Model\Scoring;
 use Adu\CheckAndCollect\Service\ApiService;
 use Adu\CheckAndCollect\Service\AduLogger;
+use Adu\CheckAndCollect\Service\ConfiguredService;
 use Composer\InstalledVersions;
 use Shopware\Core\Framework\Api\Context\SystemSource;
 use Shopware\Core\Framework\Context;
@@ -21,6 +22,8 @@ use Symfony\Contracts\Service\Attribute\Required;
 #[\Symfony\Component\Routing\Annotation\Route(defaults: ["_routeScope" => ["api"]])]
 class SolvencyController extends AbstractController
 {
+    use configuredService;
+
     private AduLogger $logger;
     private ApiService $soap;
 
@@ -61,7 +64,7 @@ class SolvencyController extends AbstractController
         if (!$customer) {
             throw new \Exception("Customer existiert nicht");
         }
-        $request = RatingRequest::fromCustomer($customer);
+        $request = RatingRequest::fromCustomer($customer, $this->config->checkDelivery());
         $request->setCache(false);
         return $this->soap->getSolvencyCheck($request);
     }

@@ -130,7 +130,7 @@ trait RuleTrait
         $this->logger->debug("Matching: ". __CLASS__);
 
         try {
-            $request = RatingRequest::fromCustomer($this->customer);
+            $request = RatingRequest::fromCustomer($this->customer, $this->config->checkDelivery());
             $request->validate($this->config);
         }catch(B2bRequestNotActivated) {
             $this->logger->info("Customer is recognized as business entity but business scorings are not activated.");
