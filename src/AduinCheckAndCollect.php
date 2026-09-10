@@ -4,14 +4,18 @@ declare(strict_types=1);
 namespace Adu\CheckAndCollect;
 
 use Adu\CheckAndCollect\Service\AduConfig;
+use Doctrine\DBAL\ArrayParameterType;
+use Doctrine\DBAL\Exception;
 use Shopware\Core\Framework\Context;
 use Adu\CheckAndCollect\Service\AduLogger;
 use Doctrine\DBAL\Connection;
 use Shopware\Core\Framework\App\Manifest\Xml\CustomField\CustomFieldSet;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
+use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\OrFilter;
 use Shopware\Core\Framework\Plugin;
 use Shopware\Core\Framework\Plugin\Context\DeactivateContext;
 use Shopware\Core\Framework\Plugin\Context\UpdateContext;
+use Shopware\Core\System\CustomField\Aggregate\CustomFieldSet\CustomFieldSetEntity;
 use Shopware\Core\System\CustomField\CustomFieldTypes;
 use Shopware\Core\Framework\Plugin\Context\InstallContext;
 use Shopware\Core\Framework\Plugin\Context\UninstallContext;
@@ -39,8 +43,19 @@ class AduinCheckAndCollect extends Plugin
     private ?AduLogger $logger = null;
     private ?EntityRepository $customFieldSetRepository = null;
     const customFieldName = "adu_solvencysettings";
+    const invoiceFieldName = "adu_invoicenumber";
     const ruleNames = ['additionalinfo', 'score', 'awareness'];
 
+    const invoiceField = [
+        'name' => AduConfig::INVOICE_NUMBER,
+        'type' => CustomFieldTypes::TEXT,
+        'config' => [
+            'label' => [
+                'de-DE' => 'Rechnungsnummer',
+                'en-GB' => 'Invoice number'
+            ]
+        ]
+    ];
     const customFields = [
         [
             'name' => AduConfig::SKIP_CHECK,
@@ -117,16 +132,12 @@ class AduinCheckAndCollect extends Plugin
      */
     public function install(InstallContext $installContext): void
     {
-        try {
-            $this->installCustomFields($installContext->getContext());
-        } catch (\Exception $e) {
-            $this->logger?->critical($e->getMessage());
-        }
     }
 
     public function update(UpdateContext $updateContext): void
     {
         try {
+            $this->getLogger()?->warning("Plugin wird geupdated");
             $c = $updateContext->getContext();
             $this->removeCustomFields($c);
             $this->installCustomFields($c);
@@ -140,6 +151,7 @@ class AduinCheckAndCollect extends Plugin
      */
     public function uninstall(UninstallContext $uninstallContext): void
     {
+        $this->getLogger()?->warning("Plugin wird uninstalliert");
 
         if ($uninstallContext->keepUserData()) {
             return;
@@ -149,30 +161,44 @@ class AduinCheckAndCollect extends Plugin
         parent::uninstall($uninstallContext);
     }
 
+    public function activate(Plugin\Context\ActivateContext $activateContext): void {
+        try {
+            $this->getLogger()?->warning("Plugin wird aktiviert");
+            $this->installCustomFields($activateContext->getContext());
+        } catch (\Exception $e) {
+            $this->getLogger()?->critical($e->getMessage());
+        }
+    }
     public function deactivate(DeactivateContext $deactivateContext): void
     {
-        $this->uninstallCustomRules();
+        $this->getLogger()?->warning("Plugin wird deaktiviert");
+        $this->removeCustomFields($deactivateContext->getContext());
     }
 
     private function removeCustomFields(Context $context): void
     {
+        $this->getLogger()?->warning("Customfields werden entfernt");
         $criteria = (new Criteria())
-            ->addFilter(new EqualsFilter('name', self::customFieldName));
+            ->addFilter(new OrFilter([
+                new EqualsFilter('name', self::customFieldName),
+                new EqualsFilter('name', self::invoiceFieldName)
+            ]));
 
         $repo = $this->getCustomFieldSetRepository();
-
-        $id = $repo
-            ->search($criteria, $context)
-            ->first()
-            ?->getUniqueIdentifier();
-
-        if ($id) {
-            $repo->delete([['id' => $id]], $context);
+        $res = $repo
+            ->search($criteria, $context);
+        /**
+         * @var CustomFieldSetEntity $cfs
+         */
+        foreach($res as $cfs){
+            $this->getLogger()?->warning("Deleting CustomFieldSetEntity : ".$cfs->getName(). " with id: ".$cfs->getId());
+            $repo->delete([['id' => $cfs->getUniqueIdentifier()]], $context);
         }
     }
 
     private function installCustomFields(Context $context): void
     {
+        $this->getLogger()?->warning("Customfields werden installiert");
         // Customer
         $this->getCustomFieldSetRepository()->create([
             [
@@ -191,25 +217,43 @@ class AduinCheckAndCollect extends Plugin
                 ]
             ]
         ], $context);
+        $this->getCustomFieldSetRepository()->create([
+            [
+                'name' => self::invoiceFieldName,
+                'customFields' => [self::invoiceField],
+                'config' => [
+                    'label' => [
+                        'de-DE' => 'Rechnung',
+                        'en-GB' => 'Invoice'
+                    ]
+                ],
+                'relations' => [
+                    [
+                        'entityName' => 'order'
+                    ]
+                ]
+            ]
+        ], $context);
     }
 
     /**
      * Löscht alle Regeln die Namen aus der Klassen-Konstante "ruleNames" hat.
-     * Kann aus uninstall oder deaktivierung kommen
+     * Kann aus uninstall oder Deaktivierung kommen
      */
     private function uninstallCustomRules(): void
     {
         try {
+            $this->getLogger()?->warning("Customrules werden deinstalliert");
             /** @var Connection $connection */
             $connection = $this->container->get(Connection::class);
-            $content = implode(",", array_map(fn() => "?", self::ruleNames));
-
             $connection
-                ->prepare("DELETE FROM rule_condition WHERE type IN ($content)")
-                ->executeQuery(self::ruleNames);
-        } catch (\Exception $e) {
-            $this->logger?->critical($e->getMessage());
-            return;
+                ->executeStatement(
+                    "DELETE FROM rule_condition WHERE type IN (:rules)",
+                    ['rules' => self::ruleNames],
+                    ['rules' => ArrayParameterType::STRING]
+                );
+        } catch (\Exception|Exception $e) {
+            $this->getLogger()?->critical("Could not uninstall custom rules: ". $e->getMessage());
         }
     }
 
@@ -220,6 +264,16 @@ class AduinCheckAndCollect extends Plugin
     {
         $this->customFieldSetRepository ??= $this->container->get('custom_field_set.repository');
         return $this->customFieldSetRepository;
+    }
+    private function getLogger(): ?AduLogger
+    {
+        if(!isset($this->logger)){
+            $l = $this->container->get(AduLogger::class);
+            if($l instanceof AduLogger){
+                $this->logger = $l;
+            }
+        }
+        return $this->logger;
     }
 
     #[Required]
