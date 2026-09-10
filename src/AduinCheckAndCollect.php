@@ -22,6 +22,7 @@ use Shopware\Core\Framework\Plugin\Context\InstallContext;
 use Shopware\Core\Framework\Plugin\Context\UninstallContext;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\EqualsFilter;
+use Shopware\Core\System\SystemConfig\SystemConfigService;
 use Symfony\Component\Config\Loader\DelegatingLoader;
 use Symfony\Component\Config\Loader\LoaderResolver;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
@@ -134,6 +135,8 @@ class AduinCheckAndCollect extends Plugin
      */
     public function install(InstallContext $installContext): void
     {
+        // $this->getFallbackmanager()
+            // ?->restoreRules($installContext->getContext());
     }
 
     public function update(UpdateContext $updateContext): void
@@ -159,7 +162,8 @@ class AduinCheckAndCollect extends Plugin
             return;
         }
         $this->removeCustomFields($uninstallContext->getContext());
-        $this->uninstallCustomRules();
+        $this->getFallbackmanager()
+            ?->replaceWithAlwaysValid($uninstallContext->getContext());
         parent::uninstall($uninstallContext);
     }
 
@@ -181,15 +185,32 @@ class AduinCheckAndCollect extends Plugin
         $this->removeCustomFields($deactivateContext->getContext());
     }
     private function getFallbackmanager(): ?RuleFallbackManager {
-        $this->fallbackManager ??= (function(){
-            $r = $this->container->get(RuleFallbackManager::class);
-            if(!$r instanceof RuleFallbackManager) {
-                $this->getLogger()?->error("Konnte rulefallbackmanager nicht finden");
-                return null;
-            }
-            return $r;
-        })();
+        $this->fallbackManager ??= $this->getService(
+            RuleFallbackManager::class,
+            fn() => new RuleFallbackManager($this->getService('rule_condition.repository'))
+        );
         return $this->fallbackManager;
+    }
+
+    /**
+     * @template T of object
+     * @param class-string<T> $service
+     * @return T|null
+     */
+    private function getService(string $service, ...$initters): null|object {
+        $initters = [
+            fn() => $this->container->get($service),
+            ...$initters
+        ];
+        foreach($initters as $initter) {
+            try{
+                $s = $initter();
+                if($s instanceof $service){
+                    return $s;
+                }
+            }catch (\Throwable){}
+        }
+        return null;
     }
 
     private function removeCustomFields(Context $context): void
@@ -284,13 +305,18 @@ class AduinCheckAndCollect extends Plugin
     }
     private function getLogger(): ?AduLogger
     {
-        if(!isset($this->logger)){
-            $l = $this->container->get(AduLogger::class);
-            if($l instanceof AduLogger){
-                $this->logger = $l;
-            }
-        }
+        $this->logger ??= $this->getService(
+            AduLogger::class,
+            fn() => (new AduLogger($this->getService('monolog.logger.adu_cc')))
+                ->setConfig($this->getConfig())
+        );
         return $this->logger;
+    }
+    private function getConfig(): ?AduConfig {
+        return $this->getService(
+            AduConfig::class,
+            fn() => new AduConfig($this->getService(SystemConfigService::class))
+        );
     }
 
     #[Required]

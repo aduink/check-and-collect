@@ -17,11 +17,9 @@ class RuleFallbackManager
 
     public function __construct(
         private readonly EntityRepository $ruleConditionRepository,
-        private readonly AduLogger $logger
     ){}
     public function replaceWithAlwaysValid(Context $context): void
     {
-        $this->logger->debug("Alle Regeln werden mit always valid ersetzt");
         $criteria = (new Criteria())
             ->addFilter(new EqualsAnyFilter('type', AduinCheckAndCollect::ruleNames));
 
@@ -42,14 +40,12 @@ class RuleFallbackManager
                 ];
             });
 
-        $this->logger->debug("NEUE REGELN", [$updates]);
         if($updates){
             $this->ruleConditionRepository->update(array_values($updates), $context);
         }
     }
     public function restoreRules(Context $context): void
     {
-        $this->logger->debug("Regeln werden restored");
         $criteria = (new Criteria())
             ->addFilter(
                 new EqualsFilter('type', AlwaysValidRule::RULE_NAME),
@@ -71,7 +67,6 @@ class RuleFallbackManager
                     'customFields' => $customFields,
                 ];
             });
-        $this->logger->debug("NEUE REGELN", [$updates]);
 
         if($updates){
             $this->ruleConditionRepository->update(array_values($updates), $context);
