@@ -3,7 +3,7 @@
     "description" : "CheckCollect",
     "license" : "proprietary",
     "type": "shopware-platform-plugin",
-    "version" : "2.7.6",
+    "version" : "2.7.7",
     "authors" : [{
             "name" : "Allgemeiner Debitoren- und Inkassodienst GmbH"
         }
