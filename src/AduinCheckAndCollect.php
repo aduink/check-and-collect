@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Adu\CheckAndCollect;
 
 use Adu\CheckAndCollect\Service\AduConfig;
+use Adu\CheckAndCollect\Service\RuleFallbackManager;
 use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\DBAL\Exception;
 use Shopware\Core\Framework\Context;
@@ -41,10 +42,11 @@ define('CHECKANDCOLLECTSALT', 'hui3h9T%$T54t$&%)="$&v56');
 class AduinCheckAndCollect extends Plugin
 {
     private ?AduLogger $logger = null;
+    private ?RuleFallbackManager $fallbackManager = null;
     private ?EntityRepository $customFieldSetRepository = null;
     const customFieldName = "adu_solvencysettings";
     const invoiceFieldName = "adu_invoicenumber";
-    const ruleNames = ['additionalinfo', 'score', 'awareness'];
+    public const ruleNames = ['additionalinfo', 'score', 'awareness'];
 
     const invoiceField = [
         'name' => AduConfig::INVOICE_NUMBER,
@@ -164,6 +166,8 @@ class AduinCheckAndCollect extends Plugin
     public function activate(Plugin\Context\ActivateContext $activateContext): void {
         try {
             $this->getLogger()?->warning("Plugin wird aktiviert");
+            $this->getFallbackmanager()
+                ?->restoreRules($activateContext->getContext());
             $this->installCustomFields($activateContext->getContext());
         } catch (\Exception $e) {
             $this->getLogger()?->critical($e->getMessage());
@@ -172,7 +176,20 @@ class AduinCheckAndCollect extends Plugin
     public function deactivate(DeactivateContext $deactivateContext): void
     {
         $this->getLogger()?->warning("Plugin wird deaktiviert");
+        $this->getFallbackmanager()
+            ?->replaceWithAlwaysValid($deactivateContext->getContext());
         $this->removeCustomFields($deactivateContext->getContext());
+    }
+    private function getFallbackmanager(): ?RuleFallbackManager {
+        $this->fallbackManager ??= (function(){
+            $r = $this->container->get(RuleFallbackManager::class);
+            if(!$r instanceof RuleFallbackManager) {
+                $this->getLogger()?->error("Konnte rulefallbackmanager nicht finden");
+                return null;
+            }
+            return $r;
+        })();
+        return $this->fallbackManager;
     }
 
     private function removeCustomFields(Context $context): void
@@ -277,8 +294,9 @@ class AduinCheckAndCollect extends Plugin
     }
 
     #[Required]
-    public function setLogger(AduLogger $logger): void
+    public function setLogger(AduLogger $logger, RuleFallbackManager $fallbackManager): void
     {
         $this->logger = $logger;
+        $this->fallbackManager = $fallbackManager;
     }
 }
